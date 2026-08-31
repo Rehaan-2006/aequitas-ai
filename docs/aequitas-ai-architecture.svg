@@ -1,0 +1,128 @@
+<svg viewBox="0 0 1600 2000" xmlns="http://www.w3.org/2000/svg" font-family="Helvetica, Arial, sans-serif">
+  <rect x="0" y="0" width="1600" height="2000" fill="#ffffff"/>
+
+  <text x="800" y="55" text-anchor="middle" font-size="34" font-weight="700" fill="#111111">Aequitas AI — architecture</text>
+
+  <!-- User query -->
+  <rect x="600" y="90" width="400" height="70" rx="10" fill="#f2f2f2" stroke="#999999" stroke-width="1.5"/>
+  <text x="800" y="133" text-anchor="middle" font-size="24" font-weight="700" fill="#111111">User query</text>
+
+  <line x1="800" y1="160" x2="800" y2="192" stroke="#333333" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <!-- Input & sanitization layer -->
+  <rect x="380" y="195" width="840" height="90" rx="12" fill="#dbe7fb" stroke="#5b8def" stroke-width="1.5"/>
+  <text x="800" y="230" text-anchor="middle" font-size="24" font-weight="700" fill="#1d3a8f">Input &amp; sanitization layer</text>
+  <text x="800" y="260" text-anchor="middle" font-size="17" fill="#28459c">PII filter · prompt-injection detection · scope check (reject non-legal queries)</text>
+
+  <line x1="800" y1="285" x2="800" y2="317" stroke="#333333" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <!-- Query analyzer agent -->
+  <rect x="330" y="320" width="940" height="100" rx="12" fill="#e6dffb" stroke="#8a63d2" stroke-width="1.5"/>
+  <text x="800" y="358" text-anchor="middle" font-size="24" font-weight="700" fill="#4a2b8f">Query Analyzer Agent</text>
+  <text x="800" y="385" text-anchor="middle" font-size="17" fill="#5a3aa0">Intent classification (Factual / False-premise / Exploratory) · conversation memory · tool routing</text>
+  <text x="800" y="408" text-anchor="middle" font-size="15" fill="#7a5fc0" font-style="italic">MCP-ready client (see future scope below)</text>
+
+  <line x1="800" y1="420" x2="800" y2="452" stroke="#333333" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <!-- Tools via MCP - future scope, dashed -->
+  <rect x="150" y="455" width="1300" height="180" rx="14" fill="#fafafa" stroke="#bbbbbb" stroke-width="1.5" stroke-dasharray="8,6"/>
+  <text x="800" y="485" text-anchor="middle" font-size="20" font-weight="700" fill="#777777">Tools via MCP — future scope (post-MVP, not in current build)</text>
+
+  <rect x="185" y="510" width="280" height="95" rx="10" fill="#dff3ec" stroke="#4fae8c" stroke-width="1.3"/>
+  <text x="325" y="548" text-anchor="middle" font-size="18" font-weight="700" fill="#1f6b52">Case law DB</text>
+  <text x="325" y="572" text-anchor="middle" font-size="14" fill="#2c8064">Live court status lookups</text>
+
+  <rect x="490" y="510" width="280" height="95" rx="10" fill="#dff3ec" stroke="#4fae8c" stroke-width="1.3"/>
+  <text x="630" y="548" text-anchor="middle" font-size="18" font-weight="700" fill="#1f6b52">Statute DB</text>
+  <text x="630" y="572" text-anchor="middle" font-size="14" fill="#2c8064">Jurisdiction-filtered</text>
+
+  <rect x="795" y="510" width="280" height="95" rx="10" fill="#dff3ec" stroke="#4fae8c" stroke-width="1.3"/>
+  <text x="935" y="548" text-anchor="middle" font-size="18" font-weight="700" fill="#1f6b52">Court status API</text>
+  <text x="935" y="572" text-anchor="middle" font-size="14" fill="#2c8064">Filing deadlines</text>
+
+  <rect x="1100" y="510" width="280" height="95" rx="10" fill="#dff3ec" stroke="#4fae8c" stroke-width="1.3"/>
+  <text x="1240" y="548" text-anchor="middle" font-size="18" font-weight="700" fill="#1f6b52">Template registry</text>
+  <text x="1240" y="572" text-anchor="middle" font-size="14" fill="#2c8064">Doc structure lookup</text>
+
+  <line x1="800" y1="635" x2="800" y2="667" stroke="#333333" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <!-- RAG pipeline -->
+  <rect x="150" y="670" width="1300" height="220" rx="14" fill="#f5f5f5" stroke="#cccccc" stroke-width="1.5"/>
+  <text x="800" y="705" text-anchor="middle" font-size="22" font-weight="700" fill="#333333">Retrieval &amp; grounding pipeline</text>
+
+  <rect x="185" y="725" width="290" height="130" rx="10" fill="#dbe7fb" stroke="#5b8def" stroke-width="1.3"/>
+  <text x="330" y="763" text-anchor="middle" font-size="19" font-weight="700" fill="#1d3a8f">Hybrid Retriever</text>
+  <text x="330" y="790" text-anchor="middle" font-size="15" fill="#28459c">Dense (semantic)</text>
+  <text x="330" y="810" text-anchor="middle" font-size="15" fill="#28459c">+ sparse (keyword)</text>
+  <text x="330" y="838" text-anchor="middle" font-size="13" fill="#5872b8" font-style="italic">Module 3</text>
+
+  <line x1="475" y1="790" x2="513" y2="790" stroke="#333333" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <rect x="516" y="725" width="290" height="130" rx="10" fill="#dbe7fb" stroke="#5b8def" stroke-width="1.3"/>
+  <text x="661" y="763" text-anchor="middle" font-size="19" font-weight="700" fill="#1d3a8f">Reranker</text>
+  <text x="661" y="790" text-anchor="middle" font-size="15" fill="#28459c">Top 3–5 passages</text>
+  <text x="661" y="810" text-anchor="middle" font-size="15" fill="#28459c">by relevance</text>
+  <text x="661" y="838" text-anchor="middle" font-size="13" fill="#5872b8" font-style="italic">new addition</text>
+
+  <line x1="806" y1="790" x2="844" y2="790" stroke="#333333" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <rect x="847" y="725" width="290" height="130" rx="10" fill="#efe0f7" stroke="#a06bd0" stroke-width="1.3"/>
+  <text x="992" y="763" text-anchor="middle" font-size="19" font-weight="700" fill="#5a2b8f">Validity / Citator Agent</text>
+  <text x="992" y="790" text-anchor="middle" font-size="15" fill="#6a3aa0">Drops overruled /</text>
+  <text x="992" y="810" text-anchor="middle" font-size="15" fill="#6a3aa0">bad-law cases</text>
+  <text x="992" y="838" text-anchor="middle" font-size="13" fill="#8a5fc0" font-style="italic">Module 4</text>
+
+  <line x1="1137" y1="790" x2="1175" y2="790" stroke="#333333" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <rect x="1178" y="725" width="255" height="130" rx="10" fill="#dbe7fb" stroke="#5b8def" stroke-width="1.3"/>
+  <text x="1305" y="763" text-anchor="middle" font-size="19" font-weight="700" fill="#1d3a8f">Context Assembly</text>
+  <text x="1305" y="790" text-anchor="middle" font-size="15" fill="#28459c">Sources + citations</text>
+  <text x="1305" y="810" text-anchor="middle" font-size="15" fill="#28459c">passed downstream</text>
+
+  <line x1="800" y1="890" x2="800" y2="922" stroke="#333333" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <!-- LLM generation -->
+  <rect x="150" y="925" width="1300" height="180" rx="14" fill="#f5f5f5" stroke="#cccccc" stroke-width="1.5"/>
+  <text x="800" y="960" text-anchor="middle" font-size="22" font-weight="700" fill="#333333">Structured Reasoning Agent — IRAC generation</text>
+
+  <rect x="320" y="985" width="420" height="95" rx="10" fill="#e6dffb" stroke="#8a63d2" stroke-width="1.3"/>
+  <text x="530" y="1023" text-anchor="middle" font-size="19" font-weight="700" fill="#4a2b8f">Fast model</text>
+  <text x="530" y="1048" text-anchor="middle" font-size="15" fill="#5a3aa0">Simple lookups / short queries</text>
+
+  <rect x="860" y="985" width="420" height="95" rx="10" fill="#e6dffb" stroke="#8a63d2" stroke-width="1.3"/>
+  <text x="1070" y="1023" text-anchor="middle" font-size="19" font-weight="700" fill="#4a2b8f">Reasoning model</text>
+  <text x="1070" y="1048" text-anchor="middle" font-size="15" fill="#5a3aa0">Complex / multi-issue queries</text>
+  <text x="1070" y="1068" text-anchor="middle" font-size="13" fill="#7a5fc0" font-style="italic">Module 5</text>
+
+  <line x1="800" y1="1105" x2="800" y2="1137" stroke="#333333" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <!-- Supervision layer -->
+  <rect x="150" y="1140" width="1300" height="230" rx="14" fill="#faf6f0" stroke="#d9c8a8" stroke-width="1.5"/>
+  <text x="800" y="1175" text-anchor="middle" font-size="22" font-weight="700" fill="#333333">Supervision layer — Citation Verifier Agent</text>
+  <text x="800" y="1200" text-anchor="middle" font-size="15" fill="#666666">Every claim checked against retrieved source text before anything reaches the user</text>
+
+  <rect x="185" y="1225" width="380" height="120" rx="10" fill="#dcf3df" stroke="#5aae6a" stroke-width="1.3"/>
+  <text x="375" y="1263" text-anchor="middle" font-size="19" font-weight="700" fill="#256b34">Auto-answer</text>
+  <text x="375" y="1290" text-anchor="middle" font-size="15" fill="#2f8542">All citations verified</text>
+  <text x="375" y="1310" text-anchor="middle" font-size="15" fill="#2f8542">against source text</text>
+
+  <rect x="610" y="1225" width="380" height="120" rx="10" fill="#fbeed9" stroke="#d99a3a" stroke-width="1.3"/>
+  <text x="800" y="1263" text-anchor="middle" font-size="19" font-weight="700" fill="#8f5a10">Abstain / flag</text>
+  <text x="800" y="1290" text-anchor="middle" font-size="15" fill="#a06a1a">Unverifiable claim —</text>
+  <text x="800" y="1310" text-anchor="middle" font-size="15" fill="#a06a1a">"cannot verify this citation"</text>
+
+  <rect x="1035" y="1225" width="380" height="120" rx="10" fill="#fbe0dc" stroke="#d9613a" stroke-width="1.3"/>
+  <text x="1225" y="1263" text-anchor="middle" font-size="19" font-weight="700" fill="#96341a">Action gate</text>
+  <text x="1225" y="1290" text-anchor="middle" font-size="15" fill="#a8422a">Drafted documents require</text>
+  <text x="1225" y="1310" text-anchor="middle" font-size="15" fill="#a8422a">user review before export</text>
+
+  <text x="800" y="1400" text-anchor="middle" font-size="16" fill="#555555">Blue = retrieval &amp; grounding  ·  Purple = agent orchestration  ·  Teal = future MCP tools (post-MVP)  ·  Green / Amber / Coral = supervision outcome</text>
+
+  <text x="800" y="1440" text-anchor="middle" font-size="14" fill="#888888" font-style="italic">Adapted from a PMA Accelerator mentor reference architecture (GenAI real estate lease assistant, MCP/RAG/supervision pattern)</text>
+
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="6" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L0,6 L7,3 z" fill="#333333"/>
+    </marker>
+  </defs>
+</svg>

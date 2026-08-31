@@ -16,12 +16,12 @@ starting any module — it defines build order, tech stack, and a hard
 ## Quick start
 
 ```
-git clone <repo-url>
+git clone https://github.com/Rehaan-2006/aequitas-ai
 cd aequitas-ai
 
 # Backend
 cd backend
-cp .env.example .env      # ask a teammate for real values once they're needed
+cp .env.example .env      
 cd ..
 
 # Everything, via Docker
