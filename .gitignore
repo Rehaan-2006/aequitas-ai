@@ -12,3 +12,17 @@ Thumbs.db
 .vscode/*
 !.vscode/extensions.json
 .idea
+
+# Environment & local secrets
+.env
+*.env
+
+# Python / Virtualenv
+venv/
+.venv/
+__pycache__/
+*.pyc
+
+# Local Data / Cache
+data/
+*.json
