@@ -8,6 +8,9 @@ Thumbs.db
 !.env.example
 !*/.env.example
 
+# Claude code
+.claude/
+
 # Editor
 .vscode/*
 !.vscode/extensions.json

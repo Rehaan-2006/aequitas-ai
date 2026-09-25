@@ -1,77 +1,112 @@
-# Aequitas AI — Module-by-Module Implementation Plan (v3)
+# Aequitas AI — Module-by-Module Implementation Plan (v4)
 
 **Instructions for the AI implementing this:** Build this project one module at a time, in the order given. After each module, stop and let the team verify it works in isolation before starting the next one. Do not jump ahead or build multiple modules in one pass — each module has its own "definition of done" checklist at the end; treat that as a hard gate. If a later module needs something from an earlier one, assume the earlier module is already working and call into it rather than re-implementing it. Follow the code standards in Section 7 for every module, not just at the end.
+
+**v4 change note:** Module 1 has been rewritten to match the actual implementation, which deviated from the original plan in several places (corpus source, embedding model, indexing strategy, schema). See the callouts inline. Every other module is unchanged from v3 except where it references something Module 1 now provides differently (flagged inline).
 
 ---
 
 ## 1. Project Context (read this first)
 
-**What this is:** Aequitas AI is a legal research and drafting assistant. Instead of one LLM answering directly, a pipeline of specialized agents sanitizes and classifies the query, retrieves and reranks case law, checks whether it's still valid, reasons over it in a structured format, and independently verifies every citation before anything is shown to the user — with the system explicitly abstaining ("I cannot verify this legal claim") rather than guessing when it can't confirm something. A drafting agent then optionally generates real legal documents (motions, demand letters, etc.) from the verified research, using a database of stored document templates so it doesn't hallucinate document structure, with any drafted document gated behind explicit user approval before export. A separate feature lets users upload their own legal documents to get their citations audited using the same verification infrastructure.
+**What this is:** Aequitas AI is a legal research and drafting assistant. Instead of one LLM answering directly, a pipeline of specialized agents sanitizes and classifies the query, retrieves and reranks case law, checks whether it's still valid, reasons over it in a structured format, and independently verifies every citation before anything reaches the user — with the system explicitly abstaining ("I cannot verify this legal claim") rather than guessing when it can't confirm something. A drafting agent then optionally generates real legal documents from the verified research, using a database of stored document templates so it doesn't hallucinate document structure, with any drafted document gated behind explicit user approval before export. A separate feature lets users upload their own legal documents to get their citations audited using the same verification infrastructure.
 
-**Why this approach:** General-purpose LLMs hallucinate legal citations 58–88% of the time on verifiable questions (Dahl et al., 2024); even commercial legal-AI tools like Lexis+ AI and Westlaw AI-Assisted Research hallucinate 17–33% of the time (Magesh et al., 2025). This project's core claim, and the thing that differentiates it from "yet another legal chatbot," is that it measures and benchmarks its own hallucination rate against these two published academic baselines, with an ablation study showing what each agent contributes.
+**Why this approach:** General-purpose LLMs hallucinate legal citations 58-88% of the time on verifiable questions (Dahl et al., 2024); even commercial legal-AI tools like Lexis+ AI and Westlaw AI-Assisted Research hallucinate 17-33% of the time (Magesh et al., 2025). This project's core claim is that it measures and benchmarks its own hallucination rate against these two published academic baselines, with an ablation study showing what each agent contributes.
 
-**Architecture reference:** The pipeline shape (sanitization → query understanding → tools layer → hybrid retrieval + reranking → grounded generation → supervision layer with graded outcomes) is adapted from a reference architecture pattern shown by a PMA Accelerator mentor, tailored to this project's legal-research domain. See the accompanying `aequitas-ai-architecture.svg` diagram for the visual layout.
+**GitHub repo:** https://github.com/Rehaan-2006/aequitas-ai — Module 0 and Module 1 are both complete and pushed to `main`. Repo was reorganized (see Module 1) to move ingestion/ETL scripts out of an ad hoc `data-prep/` folder into `scripts/`, and the DB schema is now version-controlled at `backend/app/db/schema.sql`.
 
-**Scope of this build:** This plan covers building a real, hostable, demoable product (for both a university project review and a YC-style pitch) — not just a research script. It includes a proper frontend (landing page, auth, chat, drafting, document audit, pricing/credits), not a bare single-page app.
-
-**Team:** 5 people, CS students, comfortable with Python (FastAPI, PydanticAI, LangChain-adjacent tools), some frontend experience. Backend-first team — the frontend should be kept simple to build/maintain, not necessarily simple-looking.
+**Team:** 5 people, split by role — Frontend, Backend, Database & Data Infrastructure, AI Engineer, Validator. See the five separate role-specific context files for role-scoped versions of this plan.
 
 ---
 
 ## 2. Final Tech Stack
 
-- **Agents / orchestration:** PydanticAI
-- **Vector search:** ChromaDB or pgvector (pick one — pgvector recommended if already using Postgres, to avoid running two databases)
-- **Reranking:** a cross-encoder reranker (e.g. a sentence-transformers cross-encoder model, or a hosted reranking API) — pick whichever is cheapest to self-host given the team's compute
-- **Citation graph:** Plain Postgres adjacency table (no dedicated graph DB needed at this scale)
+- **Agents/orchestration:** PydanticAI
+- **LLM provider:** Openrouter
+- **Vector search: Supabase + pgvector** (confirmed — ChromaDB was dropped as an option)
+- **Embeddings: `BAAI/bge-base-en-v1.5` (768 dimensions), run locally via `sentence-transformers`** — not via an API, to avoid rate limits/cost during bulk ingestion
+- **Reranking:** a cross-encoder reranker (e.g. a sentence-transformers cross-encoder model, or a hosted reranking API)
+- **Citation graph:** Postgres table (`case_citations`), schema ready, population is a later phase
 - **Backend API:** FastAPI
-- **Database, Auth, Storage:** Supabase (Postgres + built-in auth incl. Google OAuth + file storage)
-- **Case law corpus:** Caselaw Access Project (CAP) and/or CourtListener — start with one federal circuit, not the full corpus
+- **Database, Auth, Storage:** Supabase (Postgres + Google OAuth + file storage)
+- **Case law corpus: `common-pile/caselaw_access_project` on Hugging Face** — an ungated open mirror of CAP/CourtListener data (see Module 1 for why this replaced the official CAP dataset)
+- **Chunking: `langchain_text_splitters.RecursiveCharacterTextSplitter`** (`chunk_size=2000`, `chunk_overlap=200`, separators `["\n\n", "\n", ".", " ", ""]`)
 - **Benchmark dataset:** Dahl et al. (2024) — HuggingFace `reglab/legal_hallucinations`
-- **Document generation:** python-docx (Word), WeasyPrint or a similar HTML-to-PDF tool (PDF)
+- **Document generation:** python-docx (Word), WeasyPrint (PDF)
 - **Document text extraction (uploads):** pdfplumber or pypdf for PDF, python-docx for DOCX, plain read for TXT
-- **Frontend:** React (Vite) + Tailwind CSS — not Next.js unless the team already knows it; not raw HTML/CSS/JS given the "look alive" requirement
+- **Frontend:** React (Vite) + Tailwind CSS
 - **Hosting:** FastAPI backend in Docker on Render or Fly.io; Supabase for DB/auth/storage; frontend on Vercel
-- **Payments/credits:** Stripe (test mode is fine for the demo/pitch; doesn't need to be production-ready for YC)
+- **Payments/credits:** Stripe (test mode)
 
 ---
 
 ## 3. Feature List (what "done" looks like)
 
-1. Landing/home page with product explanation + live-ish stats (e.g., citations verified, hallucination rate vs. baseline)
-2. Login page with Google sign-in (via Supabase Auth)
-3. Research/chat page — ask a legal question, get an IRAC-formatted, citation-verified answer
-4. Input sanitization on every query (PII filter, prompt-injection detection, scope check rejecting non-legal queries) before it reaches any agent
-5. "How this answer was built" trace panel — shows what each agent/stage did (sanitization result, retrieved N cases, reranked to top-k, filtered M as bad law, verified/flagged citations)
-6. Per-answer verification badge (e.g., "7/8 citations verified")
-7. Source inspector — click a citation, see the underlying case text snippet
-8. Saved research threads — flat history list per user, not a full multi-tenant workspace
-9. Thumbs up/down feedback on answers (also doubles as eval data for the research paper)
-10. Drafting page — turn a research thread into a drafted legal document using the template registry, with an explicit approve/reject step before export ("action gate")
-11. Document upload & citation audit — user uploads a PDF/DOCX/TXT brief, gets a report of which citations are verified, flagged, or overruled
-12. Export research memos and approved drafted documents to PDF/DOCX
-13. Pricing page with a credits system (e.g., N free credits, credits consumed per research query / per draft / per document audit)
-14. Hosted, working deployment (not just localhost)
-
-**Explicitly out of scope for this build** (documented as roadmap only, do not implement): multi-tenant "Matters" workspace, full case-file binder + citation graph explorer UI, redlining/clause-risk analysis of uploaded documents (only citation auditing is in scope), real-time WebSocket agent-status streaming (use polling instead), custom-built auth (use Supabase's), OCR for scanned/image-only PDFs, MCP tool integrations (see Section 9 — future scope only), fast-model/reasoning-model routing split (optimization, see Module 5 note).
+Unchanged from v3 — see Section 3 of the previous plan version if needed. Summary: landing page with stats, Google sign-in, research/chat page with trace panel and verification badges, source inspector, saved threads, thumbs up/down, drafting page with action-gate approval, document upload/citation audit, PDF/DOCX export, pricing/credits page, hosted deployment. Out of scope: multi-tenant Matters, case-file binder/graph explorer, document redlining, real-time WebSocket status, custom auth, OCR, MCP tools (future scope only), fast/reasoning-model routing split (optional future optimization).
 
 ---
 
 ## 4. Module-by-Module Build Order
 
-### Module 0 — Repo & Environment Setup
-- Monorepo with `/backend` (FastAPI) and `/frontend` (React+Vite) folders, or two separate repos — team's choice, but decide before Module 1.
-- `.env` handling for: Supabase URL/keys, LLM provider API key, Stripe test keys (later).
-- Docker Compose for local dev: FastAPI service + Postgres (or point straight at Supabase for simplicity, skipping local Postgres).
-- **Definition of done:** `docker compose up` (or equivalent) runs an empty FastAPI app that returns `{"status": "ok"}` on `/health`, and the frontend dev server runs and shows a blank page. Nothing else.
+### Module 0 — Repo & Environment Setup — COMPLETE
+Repo live at https://github.com/Rehaan-2006/aequitas-ai, both `/backend` and `/frontend` scaffolded.
 
-### Module 1 — Data Infrastructure
-- Download a manageable subset of CAP or CourtListener data (one federal circuit, not the full corpus).
-- Chunk case text (paragraph-level or semantic chunking).
-- Generate embeddings and store in pgvector/ChromaDB.
-- Build the citation adjacency table in Postgres: `case_id`, `cites_case_id`, plus metadata columns (`date`, `jurisdiction`, `overruled_by`, `still_good_law` boolean).
-- Write a one-off script to populate `overruled_by`/`still_good_law` for at least a small hand-verified test set (full automation of this is hard — a curated subset is fine for the demo and the paper).
-- **Definition of done:** Given a raw case-law text query, a script can return the top-k semantically similar chunks AND correctly report whether the source case is flagged as overruled, using nothing but this module's code. No agent framework involved yet.
+### Module 1 — Data Infrastructure — COMPLETE
+
+**Corpus source:** The official Free Law Project CAP dataset on Hugging Face (`free-law/Caselaw_Access_Project`) is gated — the access request sat in "pending" status and blocked programmatic pulls. Switched to `common-pile/caselaw_access_project`, an ungated open mirror of CAP/CourtListener data that streams without authentication. CourtListener's own bulk data (`wiki.free.law`) was considered and rejected — it ships as raw PostgreSQL dumps across multiple large CSVs (Courts, Dockets, Opinion Clusters, Opinions), requiring gigabytes of downloads and local multi-table joins just to get text with metadata. `common-pile` gives streamable flat JSON text instead, at the cost of sparse top-level metadata (only `author`, `license`, `url`).
+
+**Header parsing:** Because `common-pile` doesn't expose structured case metadata, a regex header parser (`parse_case_header`) extracts `case_name`, `docket_number`, `court`, and `decision_date_raw` from the first 500-600 characters of the raw opinion text.
+
+**Date parsing:** Raw headers have inconsistent date formats (`Feb. 12, 1973`, `Jan. 18, 1973`, `March 1, 1973`). Use `python-dateutil`'s `parser.parse(..., fuzzy=True)` to normalize into SQL `DATE` values rather than leaving the column `NULL`.
+
+**Citations:** `common-pile` headers only expose docket numbers (e.g. `No. 72-1889`), not official reporter citations (e.g. `483 F.2d 1234`). To satisfy `cases.citation NOT NULL UNIQUE`, generate synthetic identifiers: `f"{docket_number} ({court} {decision_date_raw})"`. Real reporter citations are deferred to a later backfill via the CourtListener API, planned for the Validity/Citator agent build (Module 4) — **flag this to whoever builds Module 4: don't assume `citation` is a real Bluebook-format citation yet.**
+
+**Chunking:** use `langchain_text_splitters.RecursiveCharacterTextSplitter` (`chunk_size=2000`, `chunk_overlap=200`, separators `["\n\n", "\n", ".", " ", ""]`) — not naive character slicing, which cuts citations and terms mid-word.
+
+**Embeddings:** `BAAI/bge-base-en-v1.5` (768 dimensions) via `sentence-transformers`, run locally (not through an API) to avoid rate limits and per-token cost during bulk ingestion. Use `bge-base`, not `bge-small` (384 dim) — the `case_chunks` table's vector column is already `vector(768)`. **Query-side note:** searches must prefix the query text with `"Represent this sentence for searching relevant passages: "` per BAAI's official usage recommendation for asymmetric retrieval — this prefix goes on the query only, never on the ingested chunk text. This was added to the retrieval test and confirmed working (0.80+ cosine similarity on real test queries).
+
+**Vector indexing:** use **HNSW**, not IVFFlat. IVFFlat requires pre-existing data to train its clustering lists and fails on an empty table. `CREATE INDEX ... USING hnsw (embedding vector_cosine_ops)` builds dynamically with no training step and gives higher recall.
+
+**Search:** implemented as a Supabase SQL RPC function, `match_case_chunks`, computing cosine similarity (`1 - (case_chunks.embedding <=> query_embedding)`) and joining `case_chunks` with `cases`. This is the function the Hybrid Retrieval Agent (Module 3) calls — don't reimplement retrieval logic elsewhere. **Verified end-to-end and working correctly** (see Section 6 for the live schema this actually runs against).
+
+**Citation graph:** `case_citations` is populated — `scripts/build_citations.py` regex-scans each case's `raw_text` for standard reporter-citation patterns (e.g. `395 U.S. 762`) and inserts 7,283 edges across the 502 cases. As expected given the small 2-circuit corpus, the large majority of `cited_case_id` values are `NULL` (the cited case is external to the corpus) — `cited_citation_text` captures the raw matched string regardless. **Known quality caveats, not yet addressed:** the extraction regex is loose (matches any "number, words, number" pattern, not just verified reporter formats) so some noise is likely in the 7,283 edges; the script is not idempotent (no dedup guard — re-running it will insert duplicate rows); and no internal edges (a case in the corpus citing another case also in the corpus) can currently be detected, since the corpus's own `citation` values are synthetic and won't match the regex's reporter-format extraction.
+
+**Current corpus status:** ingestion stopped at **502 cases** (~4,000-5,000 embedded chunks), strictly filtered to the **Fifth Circuit** and **Ninth Circuit**, versus an original target of 1,500-1,800 cases — local CPU embedding on a MacBook Air was too slow to hit the full target before other modules needed to unblock. **Revisit corpus size before final benchmarking** — a 502-case, 2-circuit corpus may not give a representative hallucination-rate comparison against Dahl et al.'s much larger test set.
+
+**Repo structure (reorganized, committed and pushed):**
+```
+aequitas-ai/
+├── backend/
+│   ├── app/
+│   │   ├── api/
+│   │   ├── core/
+│   │   ├── db/
+│   │   │   ├── schema.sql        # version-controlled source of truth for the DB schema
+│   │   │   └── supabase.py
+│   │   ├── services/
+│   │   └── main.py
+│   ├── tests/
+│   │   ├── test_health.py               # boilerplate FastAPI health check, run by CI
+│   │   └── verify_retrieval.py          # live Supabase + embedding-model integration check, run manually only (renamed from test_retrieval.py so CI/pytest doesn't try to auto-run it without live credentials)
+│   ├── pyproject.toml
+│   └── uv.lock
+├── scripts/                       # renamed from data-prep/ — batch/ETL jobs
+│   ├── ingest_corpus.py           # renamed from pipeline.py
+│   └── build_citations.py
+├── frontend/
+├── docs/
+├── .env                            # gitignored
+├── .env.example                    # committed template
+├── .gitignore
+└── README.md
+```
+
+**Open work remaining before this is fully closed out:**
+- Fix the citation-extraction regex to match real reporter-citation formats only (currently overly permissive), and add a dedup/idempotency guard to `build_citations.py`.
+- Decide whether to expand corpus size/circuit coverage before Module 16 benchmarking, and whether to backfill real reporter citations via CourtListener before then too.
+- The original plan's `overruled_by` self-referencing FK (for the Validity/Citator Agent to substitute a replacement case) is **not in the actual schema** — only a boolean `is_overruled` flag exists on `cases`. Decide with whoever builds Module 4 whether "substitute the overruling case" is still in scope, or whether the agent should just drop overruled cases without substitution for now.
+- The CI fix (renaming `test_retrieval.py` → `verify_retrieval.py` so pytest stops auto-discovering it) works, but is a workaround rather than the standard fix — the more conventional approach is a `pytest.ini`/`pyproject.toml` marker (`@pytest.mark.integration`) with CI configured to skip that marker by default, which keeps the file runnable via `pytest` locally too. Not urgent, but worth doing properly before more integration tests accumulate.
+
+**Definition of done:** met. `match_case_chunks` returns correct, highly relevant top-k chunks with case metadata (verified live), `is_overruled` correctly reflects hand-verified test cases, and the citation graph has real (if imperfect) data populated.
 
 ### Module 1.5 — Input & Sanitization Layer
 - Standalone component sitting in front of every agent — every raw user query (research or drafting) passes through this before anything else runs.
@@ -85,138 +120,155 @@
 - **Definition of done:** Given 10 test queries (mix of valid and false-premise), the agent correctly flags the false-premise ones, verified manually, with no dependency on later modules.
 
 ### Module 3 — Hybrid Retrieval Agent
-- Input: a query (post-analysis). Output: ranked list of case-law chunks, combining semantic search (Module 1's vector store) with the citation graph (boost/deprioritize based on citation relationships) and metadata filters (jurisdiction, date).
-- **Definition of done:** Given a test query with a known "correct" case in the corpus subset, the agent retrieves it in the top-k (wider, e.g. top-20) results. Runs standalone, output is inspectable as a plain list. This module intentionally over-retrieves — narrowing to the final top-k happens in Module 3.5.
+- Input: a query (post-analysis). Output: ranked list of case-law chunks, combining semantic search (calls Module 1's `match_case_chunks` RPC) with the citation graph (once `case_citations` is populated) and metadata filters (jurisdiction, date).
+- **Note (v4):** semantic search is a direct call to `match_case_chunks`, not a generic "vector store query" — use the real function signature Module 1 exposes.
+- **Definition of done:** Given a test query with a known "correct" case in the 502-case corpus subset, the agent retrieves it in the top-k (wider, e.g. top-20) results. This module intentionally over-retrieves — narrowing to the final top-k happens in Module 3.5.
 
 ### Module 3.5 — Reranker
-- Input: the Hybrid Retrieval Agent's wider result set (e.g. top-20). Output: narrowed to the top 3–5 passages actually worth passing downstream, reordered by a cross-encoder relevance score rather than raw retrieval score.
+- Input: the Hybrid Retrieval Agent's wider result set (e.g. top-20). Output: narrowed to the top 3-5 passages actually worth passing downstream, reordered by a cross-encoder relevance score rather than raw retrieval score.
 - Keep this as a separate, swappable component — it should be possible to disable it and fall back to raw retrieval order, since this is also useful for the ablation study.
-- **Definition of done:** Given a test query where the "correct" passage is retrieved but not ranked first by Module 3, the reranker correctly promotes it into the top 3–5. Measure this against a small hand-labeled relevance test set.
+- **Definition of done:** Given a test query where the "correct" passage is retrieved but not ranked first by Module 3, the reranker correctly promotes it into the top 3-5.
 
 ### Module 4 — Validity/Citator Agent
-- Input: the Reranker's output. Output: same list, minus any case flagged as overruled/bad law in Module 1's metadata, with the overruling case substituted in where available.
-- **Definition of done:** Given a reranked result set that includes a known-overruled test case, this agent removes it and the output list no longer contains it.
+- Input: the Reranker's output. Output: same list, minus any case flagged `is_overruled = true` in Module 1's `cases` table.
+- **Note (v4):** the schema currently has only a boolean `is_overruled` flag, not the originally planned `overruled_by` FK to a replacement case — confirm with Module 1's owner whether "substitute the overruling case" is still planned before building that part; if not, this agent should just drop overruled cases for now.
+- **Definition of done:** Given a reranked result set that includes a known-overruled test case (`is_overruled = true`), this agent removes it from the output list.
 
 ### Module 5 — Structured Reasoning Agent
 - Input: validated case list + original query. Output: a strict Pydantic-modeled IRAC structure (Issue, Rule, Application, Conclusion), where every claim in Rule/Application must reference a specific item from the input case list (no free-floating claims).
-- **Definition of done:** Output validates against the Pydantic schema every time (test with 10+ queries), and every citation in the output can be traced back to an item in the input list (no citations invented at this stage — that's expected, since verification happens next).
-- **Optional future optimization (not required for MVP):** splitting this into a fast/cheap model for simple factual lookups and a stronger reasoning model for complex multi-issue queries, routed by the Query Analyzer Agent's classification. Only pursue this after the core pipeline is working and benchmarked — it's a cost/latency optimization, not a correctness requirement.
+- **Definition of done:** Output validates against the Pydantic schema every time (test with 10+ queries), and every citation in the output can be traced back to an item in the input list.
+- **Optional future optimization (not required for MVP):** fast/cheap model for simple lookups, stronger reasoning model for complex queries, routed by the Query Analyzer Agent's classification.
 
 ### Module 6 — Citation Verifier Agent
 - Input: the IRAC output + the original source chunks. Output: each citation marked verified/flagged, with unverifiable claims either stripped or the system abstaining on that specific claim.
-- Design this as a reusable component from the start (a function/class that takes a list of citations + source text and returns verification results), not something hardwired to the research pipeline — Module 9.5 (document upload) and Module 8 (drafting) both call this same component.
-- This is the most complex agent — budget the most time here.
+- **Note (v4):** since `cases.citation` values are currently synthetic (docket-number-based, not real Bluebook citations — see Module 1), this agent's "does the citation exist" check should verify against the corpus's synthetic identifiers for now, not assume Bluebook formatting. Revisit once real citations are backfilled.
+- Design this as a reusable component from the start — Module 9.5 (document upload) and Module 8 (drafting) both call this same component.
 - **Definition of done:** Run against the LePhantomCite-style test (take a few real citations, deliberately corrupt/swap them, feed through) — the agent must catch the corrupted ones. Log precision/recall on a small hand-built test set.
 
 ### Module 7 — Research Pipeline Orchestration
-- Wire Modules 1.5–6 together sequentially via PydanticAI, with a shared state object.
+- Wire Modules 1.5-6 together sequentially via PydanticAI, with a shared state object.
 - Handle failure states explicitly: sanitization rejects the query → return the rejection reason immediately; zero retrieval results → short-circuit with a clear message; verifier flags everything → return an abstention message, not a broken answer.
-- Add the pipeline-trace logging here (which stage did what, what got filtered/reranked/rejected) — this feeds both the "how this was built" UI panel and the ablation study later.
-- **Definition of done:** A single function/endpoint takes a raw query string and returns a complete, verified IRAC response plus a trace log, with no manual wiring — this is the object the backend API will call.
+- Add pipeline-trace logging here — feeds the "how this was built" UI panel and the ablation study.
+- **Definition of done:** A single function `run_pipeline(query, jurisdiction, deps)` takes a raw query string and returns a complete, verified IRAC response plus a trace log.
 
 ### Module 8 — Drafting Agent (Template-Constrained, with Action Gate)
-- Set up `document_templates` table (see schema in Section 6) and populate with a small number of real templates (start with 2–3: e.g., a demand letter and one motion type — expand later).
-- **Template Matcher:** given a research output + jurisdiction, selects the right template.
-- **Section-by-Section Drafter:** generates the document one section at a time (not the whole document in one prompt), pulling IRAC content from Module 7's output into the "argument" section.
-- **Citation Injector/Formatter:** standardizes citations into Bluebook format.
-- Re-run the drafted output back through Module 6 (Citation Verifier) before returning it — do not skip this step.
-- **Action gate:** the drafted document is returned with status `pending_review`, not auto-exportable. The document only becomes exportable after the user explicitly approves it (see Module 9's approval endpoint and Module 12's frontend approve/reject UI). This is a deliberate trust boundary — the system drafts, but never finalizes, a legal document without a human sign-off.
-- **Definition of done:** Given a completed research thread, the agent produces a document matching the selected template's required sections, with all citations re-verified, status set to `pending_review`, and no section left as an unfilled placeholder.
+- Set up `document_templates` table and populate with 2-3 real templates.
+- Template Matcher → Section-by-Section Drafter → Citation Injector → re-run through Module 6 before returning.
+- **Action gate:** drafted document returned with status `pending_review`, only exportable after explicit user approval.
+- **Definition of done:** Given a completed research thread, produces a document matching the template's required sections, all citations re-verified, status `pending_review`, no unfilled placeholders.
 
 ### Module 9 — Backend API (FastAPI)
 - Auth: Supabase Google OAuth, verify JWT on protected routes.
-- Endpoints: `POST /research` (calls Module 7), `POST /draft` (calls Module 8), `POST /draft/{id}/approve` and `POST /draft/{id}/reject` (action gate), `GET /threads`, `POST /threads/{id}/feedback` (thumbs up/down), `GET /threads/{id}/export` (PDF/DOCX via python-docx/WeasyPrint — only permitted when a draft's status is `approved`), credits check/decrement middleware on `/research`, `/draft`, and `/verify-document`.
-- **Definition of done:** All endpoints testable via curl/Postman with a real Supabase-authenticated user, correctly enforcing credit balance (rejecting requests at 0 credits), correctly blocking export of an unapproved draft, and returning real pipeline output, not mocked data.
+- Endpoints: `POST /research`, `POST /draft`, `POST /draft/{id}/approve` / `.../reject`, `GET /threads`, `POST /threads/{id}/feedback`, `GET /threads/{id}/export`, credits middleware on `/research`, `/draft`, `/verify-document`.
+- **Definition of done:** All endpoints testable via curl/Postman with a real Supabase-authenticated user, correctly enforcing credit balance, blocking export of unapproved drafts, returning real pipeline output.
 
 ### Module 9.5 — Document Upload & Citation Audit
-- Pipeline: user document (PDF/DOCX/TXT) → Module 1.5 (sanitization, applied to extracted text too) → text extraction → citation extraction → parallel verification → audit report.
-- **Extraction guardrails:** use pdfplumber/pypdf for PDF, python-docx for DOCX, plain read for TXT. Enforce a page/size limit (e.g., 20 pages). If extracted character count is below a sane threshold for the document's length (e.g., under 50 characters on a 5-page PDF), fail fast with a clear "scanned/image-only document detected, please upload a searchable, text-based file" error rather than attempting OCR.
-- **Citation extraction:** combine regex patterns for standard Bluebook citation formats (e.g., U.S. Reports, Federal Reporter, Supreme Court Reporter patterns) with a fast LLM pass to catch citations regex misses or that are written irregularly.
-- **Verification:** feed extracted citations through Module 6's Citation Verifier component (reused, not reimplemented) and through Module 4's validity check for overruled/bad law status. Run citations in parallel batches, not sequentially, so a multi-page document doesn't process one citation at a time.
-- Output: a structured audit report — each citation with status (clean / flagged / overruled) — in the same shape as the verification badge used elsewhere in the product, so the frontend can reuse existing UI components.
-- **Definition of done:** Given a test document with a mix of real, corrupted, and overruled citations, the endpoint returns a correct per-citation status report, processing a ~15-page document in well under a minute.
+- Pipeline: user document (PDF/DOCX/TXT) → sanitization → text extraction → citation extraction → parallel verification (via Module 6) → audit report.
+- Extraction guardrails, page/size limits, scanned-PDF rejection — unchanged from v3.
+- **Definition of done:** Given a test document with real/corrupted/overruled citations, returns a correct per-citation status report for a ~15-page document in well under a minute.
 
 ### Module 10 — Frontend: Auth + Shell
-- Landing page (static content + a stats section — even if stats are pulled from a simple aggregate query initially, e.g., "X citations verified, Y% flagged").
-- Login page with Google sign-in via Supabase client SDK.
-- App shell/navigation: Research, Draft, Document Audit, Pricing.
-- **Definition of done:** A user can land on the homepage, sign in with Google, and reach an empty authenticated app shell.
+Unchanged from v3 — landing page with stats, Google sign-in, app shell/navigation.
 
 ### Module 11 — Frontend: Research/Chat Page
-- Chat interface calling `POST /research`.
-- Trace panel (collapsible, shows stage-by-stage progress from the trace log, including sanitization/reranking steps).
-- Verification badge per answer.
-- Source inspector panel (click citation → see source snippet, fetched via a small backend endpoint if not already included in the response).
-- Thumbs up/down buttons.
-- Saved threads list (sidebar), calling `GET /threads`.
-- **Definition of done:** A logged-in user can ask a question, see a real verified answer with trace + badge + source inspection working, and see it appear in their thread history on reload.
+Unchanged from v3 — chat interface, trace panel, verification badge, source inspector, feedback, saved threads.
 
 ### Module 12 — Frontend: Drafting Page
-- Select a saved research thread → select a template → view generated draft section-by-section → explicit **Approve** / **Reject** buttons (action gate) → export button only enabled once approved.
-- **Definition of done:** A user can go from an existing research thread to a downloaded DOCX/PDF draft, end to end, and cannot export without first approving.
+Unchanged from v3 — thread → template → draft preview → approve/reject → export.
 
 ### Module 13 — Frontend: Document Audit Page
-- Upload widget (PDF/DOCX/TXT only, with clear file-type/size restrictions shown in the UI).
-- Audit report view reusing the verification badge/trust-indicator components from Module 11 (green/yellow/red per citation).
-- **Definition of done:** A user can upload a test document and see a correct, readable audit report end to end, using the same visual components as the research page.
+Unchanged from v3 — upload widget, audit report view reusing Module 11's components.
 
 ### Module 14 — Pricing / Credits
-- Pricing page (static content + Stripe test-mode checkout is enough — doesn't need to be production billing for a demo).
-- Credit balance display in the app shell.
-- Backend enforcement already done in Module 9 — this module is mostly frontend + wiring Stripe test mode to top up credits.
-- **Definition of done:** A test user can see their credit balance drop after a research/draft/document-audit call, and top it up via a Stripe test-mode transaction.
+Unchanged from v3 — pricing page, Stripe test mode, credit balance display.
 
 ### Module 15 — Deployment
-- Backend: Dockerize, deploy to Render or Fly.io.
-- Frontend: deploy to Vercel.
-- Confirm Supabase auth redirect URLs, CORS, and env vars are correctly set for the deployed URLs (not just localhost).
-- **Definition of done:** The full flow (sign in → research → draft → approve → document audit → export → credits) works on the live hosted URL, not just locally.
+Unchanged from v3 — backend Dockerized on Render/Fly.io, frontend on Vercel.
 
-### Module 16 — Evaluation & Benchmarking (for the research paper — can run in parallel with Modules 10–15 once Module 7 is done)
-- Run the Dahl et al. (2024) benchmark question set (or a representative sample, given ~200K questions) through Module 7, log hallucination rate.
-- Ablation study: disable Module 6 (Verifier), then also Module 4 (Validity/Citator), then also Module 3.5 (Reranker), re-run a subset, measure hallucination rate at each step.
-- Run the LePhantomCite-style injected-citation test specifically against Module 6, report precision/recall/F1.
-- Compile results against the published baselines (Dahl et al.: 58–88%; Magesh et al.: 17–43%).
-- **Definition of done:** A results table showing baseline vs. full pipeline vs. each ablation step, ready to drop into Paper 2.
+### Module 16 — Evaluation & Benchmarking
+- Run Dahl et al. (2024) benchmark questions through Module 7, log hallucination rate.
+- **Note (v4):** run this against the current 502-case, two-circuit corpus first to validate the pipeline works, but treat results as preliminary — revisit corpus size (see Module 1) before treating any number here as the final reported result.
+- Ablation study: disable Module 6, then also Module 4, then also Module 3.5, re-run a subset, measure hallucination rate at each step.
+- LePhantomCite-style injected-citation test against Module 6, report precision/recall/F1.
+- **Definition of done:** A results table showing baseline vs. full pipeline vs. each ablation step, ready for Paper 2.
 
 ---
 
-## 5. Demo Flow (for both project review and YC pitch)
+## 5. Demo Flow
 
-Structure the live demo around a single scenario that shows the system's differentiation, not just its features:
-
-1. **The loaded query:** Ask a question that hinges on an overturned precedent or a false legal premise.
-2. **The live trace:** Open the trace panel and show sanitization passing, retrieval and reranking narrowing to the right passages, and the Validity/Citator Agent catching the overruled case, dropping it, and substituting the current governing standard.
-3. **The draft:** Generate a short motion section in IRAC style with verified pincites, show the action-gate approval step, then export.
-4. **The audit:** Upload an external document with a deliberately injected bad citation and show the audit report flagging it immediately.
-
-This sequence is deliberately built to only use features already in the module list above — nothing demo-specific needs to be built separately.
+Unchanged from v3: loaded query with an overturned precedent or false premise → live trace showing the Validity/Citator Agent catching it → short motion draft in IRAC style with verified pincites and the action-gate approval step → document audit catching an injected bad citation.
 
 ---
 
-## 6. Database Schema (Postgres / Supabase)
+## 6. Database Schema (Postgres / Supabase) — updated to match actual implementation
 
 ```sql
--- Case law metadata (populated in Module 1)
-CREATE TABLE cases (
+-- Case law metadata (Module 1 — ACTUAL, final schema)
+CREATE TABLE IF NOT EXISTS cases (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    citation TEXT NOT NULL,
-    jurisdiction VARCHAR(100),
-    decided_date DATE,
-    still_good_law BOOLEAN DEFAULT TRUE,
-    overruled_by UUID REFERENCES cases(id),
-    source_url TEXT
+    citation TEXT NOT NULL UNIQUE,   -- currently synthetic: "{docket_number} ({court} {decision_date_raw})"
+    case_name TEXT NOT NULL,
+    court TEXT,
+    jurisdiction TEXT,
+    decision_date DATE,              -- parsed via python-dateutil fuzzy parsing
+    is_overruled BOOLEAN DEFAULT false,
+    raw_text TEXT NOT NULL,
+    source TEXT DEFAULT 'CAP',
+    created_at TIMESTAMPTZ DEFAULT now()
+    -- NOTE: no overruled_by FK (see Module 1 open work / Module 4 note above)
 );
 
--- Citation graph (populated in Module 1)
-CREATE TABLE case_citations (
-    citing_case_id UUID REFERENCES cases(id),
-    cited_case_id UUID REFERENCES cases(id),
-    PRIMARY KEY (citing_case_id, cited_case_id)
+-- Case chunks with embeddings (Module 1 — final schema)
+CREATE TABLE IF NOT EXISTS case_chunks (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    case_id UUID REFERENCES cases(id) ON DELETE CASCADE,
+    chunk_index INT NOT NULL,
+    chunk_text TEXT NOT NULL,
+    embedding VECTOR(768),           -- BAAI/bge-base-en-v1.5
+    created_at TIMESTAMPTZ DEFAULT now()
 );
+CREATE INDEX IF NOT EXISTS case_chunks_embedding_hnsw_idx ON case_chunks USING hnsw (embedding vector_cosine_ops);
+CREATE INDEX IF NOT EXISTS idx_case_chunks_case_id ON case_chunks (case_id);
+-- Search: via the match_case_chunks() RPC function (cosine similarity) — see below
 
--- Document templates (populated in Module 8)
-CREATE TABLE document_templates (
+-- Citation graph (Module 1 — populated, 7,283 rows)
+CREATE TABLE IF NOT EXISTS case_citations (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),   -- surrogate PK; NOT the composite key originally planned
+    citing_case_id UUID REFERENCES cases(id) ON DELETE CASCADE,
+    cited_case_id UUID REFERENCES cases(id) ON DELETE SET NULL,   -- nullable; NULL for the large majority of rows (cited case is external to the 502-case corpus)
+    cited_citation_text TEXT NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_case_citations_citing ON case_citations (citing_case_id);
+CREATE INDEX IF NOT EXISTS idx_case_citations_cited ON case_citations (cited_case_id);
+
+-- match_case_chunks RPC (Module 1 — live and verified working)
+CREATE OR REPLACE FUNCTION match_case_chunks (
+  query_embedding VECTOR(768),
+  match_threshold FLOAT DEFAULT 0.5,
+  match_count INT DEFAULT 5
+)
+RETURNS TABLE (
+  id UUID, case_id UUID, chunk_index INT, chunk_text TEXT, similarity FLOAT,
+  case_name TEXT, citation TEXT, court TEXT, decision_date DATE
+)
+LANGUAGE sql STABLE
+AS $$
+  SELECT
+    case_chunks.id, case_chunks.case_id, case_chunks.chunk_index, case_chunks.chunk_text,
+    1 - (case_chunks.embedding <=> query_embedding) AS similarity,
+    cases.case_name, cases.citation, cases.court, cases.decision_date
+  FROM case_chunks
+  JOIN cases ON cases.id = case_chunks.case_id
+  WHERE 1 - (case_chunks.embedding <=> query_embedding) > match_threshold
+  ORDER BY case_chunks.embedding <=> query_embedding
+  LIMIT match_count;
+$$;
+```
+
+The above is the actual live schema (`backend/app/db/schema.sql`, version-controlled). The tables below are still as originally planned and not yet built.
+
+```sql
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     title VARCHAR(255) NOT NULL,
     jurisdiction VARCHAR(100) NOT NULL,
@@ -228,11 +280,11 @@ CREATE TABLE document_templates (
 -- Research threads (Module 9/11)
 CREATE TABLE research_threads (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id UUID NOT NULL, -- references Supabase auth.users
+    user_id UUID NOT NULL,
     query TEXT NOT NULL,
-    result_json JSONB NOT NULL, -- IRAC output + verification metadata
-    trace_json JSONB NOT NULL,  -- stage-by-stage trace log
-    feedback SMALLINT, -- -1, 0, 1 for thumbs down/none/up
+    result_json JSONB NOT NULL,
+    trace_json JSONB NOT NULL,
+    feedback SMALLINT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
@@ -243,7 +295,7 @@ CREATE TABLE legal_drafts (
     template_id UUID REFERENCES document_templates(id),
     content_json JSONB NOT NULL,
     verification_status VARCHAR(50) DEFAULT 'unverified',
-    approval_status VARCHAR(50) DEFAULT 'pending_review', -- pending_review, approved, rejected
+    approval_status VARCHAR(50) DEFAULT 'pending_review',
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
@@ -259,7 +311,7 @@ CREATE TABLE document_audits (
 
 -- Credits (Module 9/14)
 CREATE TABLE user_credits (
-    user_id UUID PRIMARY KEY, -- references Supabase auth.users
+    user_id UUID PRIMARY KEY,
     balance INTEGER NOT NULL DEFAULT 10,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
@@ -269,54 +321,43 @@ CREATE TABLE user_credits (
 
 ## 7. Code Standards (apply to every module, not just at the end)
 
-- **Modularity:** each agent/stage (Modules 1.5–6, 8) must be a self-contained unit with a clear input/output contract (typed via Pydantic models), callable independently of the orchestration layer. No stage should directly import or depend on another stage's internals — they communicate only through the shared state object / defined interfaces.
-- **Reusability over duplication:** shared logic (sanitization, citation verification, text extraction, PDF/DOCX export) is written once as a service/utility and imported wherever needed. Module 9.5 and Module 8 must both call Module 6's verifier component rather than each having their own copy; Module 9.5 must reuse Module 1.5's sanitization rather than reimplementing it.
-- **Scalability for future features:** design the pipeline orchestration (Module 7) so a new stage can be inserted into the sequence, or an existing one swapped out or disabled (as the ablation study and the reranker's fallback mode both require), without rewriting the other stages. Keep the stage interface consistent (same input/output pattern) across the pipeline for this reason.
-- **Separation of concerns:** keep API route handlers thin — they should validate input, call into a service/pipeline function, and format the response. Business logic belongs in service modules, not in route handlers.
-- **Configuration over hardcoding:** API keys, model names, credit costs, file-size limits, reranker top-k, and similar values belong in config/environment variables, not hardcoded inline.
-- **Naming and structure:** consistent, descriptive naming across backend and frontend; one clear folder per module/domain (e.g., `agents/`, `retrieval/`, `drafting/`, `documents/`, `api/`, `db/`) rather than a flat file dump.
-- **Comments:** keep comments minimal — only where the reasoning behind a non-obvious decision genuinely needs explaining. Code should be readable primarily through clear naming and structure, not through comment density.
-- **No emojis** anywhere in code, commit messages, log output, or code comments.
-- **Error handling:** every external call (LLM, database, file parsing) should fail explicitly and predictably (clear exceptions/error responses), not silently swallow errors.
-- **Testing discipline:** each module's "definition of done" test should be kept as an actual runnable test (even a simple script), not just a manual one-off check, so regressions in later modules are caught early.
+- **Modularity:** each agent/stage must be a self-contained unit with a clear input/output contract (typed via Pydantic models), callable independently of the orchestration layer.
+- **Reusability over duplication:** shared logic (sanitization, citation verification, text extraction, PDF/DOCX export, `match_case_chunks` retrieval) is written once and imported wherever needed.
+- **Scalability for future features:** design pipeline orchestration so a stage can be inserted, swapped, or disabled (ablation study, reranker fallback) without rewriting other stages.
+- **Separation of concerns:** keep API route handlers thin — business logic belongs in service modules.
+- **Configuration over hardcoding:** API keys, model names, credit costs, file-size limits, embedding model name, chunk size belong in config/environment variables.
+- **Naming and structure:** one clear folder per module/domain rather than a flat file dump.
+- **Comments:** minimal — only where genuinely non-obvious. No emojis anywhere in code, commit messages, or comments.
+- **Error handling:** every external call should fail explicitly and predictably, not silently swallow errors.
+- **Testing discipline:** keep each module's "definition of done" test as an actual runnable script.
 
 ---
 
-## 8. Base Papers & Datasets (for Module 16, and for context throughout)
+## 8. Base Papers & Datasets
 
-- **Dahl, Magesh, Suzgun & Ho (2024)**, "Large Legal Fictions: Profiling Legal Hallucinations in Large Language Models," *Journal of Legal Analysis* 16(1):64–93. Dataset: HuggingFace `reglab/legal_hallucinations`.
-- **Magesh, Surani, Dahl, Suzgun, Manning & Ho (2025)**, "Hallucination-Free? Assessing the Reliability of Leading AI Legal Research Tools," *Journal of Empirical Legal Studies* 22:216–242.
-- **Liu, Stammbach & Henderson (2026)**, "Who Checks the Citations? Benchmarking Legal Hallucination Detection" (LePhantomCite), arXiv:2606.21155 — methodology source for Module 6's evaluation.
-- **Corpus:** Caselaw Access Project (CAP) / CourtListener.
+- **Dahl, Magesh, Suzgun & Ho (2024)**, "Large Legal Fictions: Profiling Legal Hallucinations in Large Language Models," *Journal of Legal Analysis* 16(1):64-93. Dataset: HuggingFace `reglab/legal_hallucinations`.
+- **Magesh, Surani, Dahl, Suzgun, Manning & Ho (2025)**, "Hallucination-Free? Assessing the Reliability of Leading AI Legal Research Tools," *Journal of Empirical Legal Studies* 22:216-242.
+- **Liu, Stammbach & Henderson (2026)**, "Who Checks the Citations? Benchmarking Legal Hallucination Detection" (LePhantomCite), arXiv:2606.21155.
+- **Corpus:** `common-pile/caselaw_access_project` (HuggingFace) — open mirror of CAP/CourtListener data.
 
 ---
 
 ## 9. Future Scope — MCP Tool Integration (not part of this build)
 
-Deferred deliberately — revisit only if time permits after Modules 0–16 are complete and stable. Candidate directions to consider later, not commitments:
-
-- Live case-law/court-status lookups via an MCP server, so the Query Analyzer Agent (acting as an MCP client) could route certain queries to a live tool rather than only the static retrieval corpus.
-- Jurisdiction/statute knowledge-base tools exposed via MCP for more current statutory information than a static corpus snapshot.
-- A filing-deadline/court-calendar tool for the drafting side of the product.
-
-Do not begin implementing any of this until the core pipeline (Modules 0–16) is working and benchmarked — it's explicitly a post-MVP direction.
+Unchanged from v3 — deferred until Modules 0-16 are complete and stable.
 
 ---
 
-## 10. YC Positioning (for context, not for the coding bot to implement)
+## 10. YC Positioning
 
-- **Target customer:** solo practitioners, boutique litigation firms (2–20 lawyers), and public defender organizations — not free legal aid for the general public (limited willingness-to-pay, and unauthorized-practice-of-law liability concerns).
-- **Core value proposition:** commercial legal-AI tools still hallucinate citations 17–33% of the time; this product is positioned as the first benchmark-backed legal research and drafting system with an independently verified, published-baseline-beating accuracy rate.
-- **Differentiation:** a deterministic citation-verification and good-law-filtering layer, not just a bigger or better-prompted model — paired with a public, reproducible benchmark comparison, which most competitors don't offer.
+Unchanged from v3 — target customer: solo practitioners, boutique litigation firms (2-20 lawyers), public defender organizations. Core value proposition: benchmark-backed citation accuracy vs. published baselines.
 
 ---
 
 ## 11. Notes for Whoever Implements This
 
-- Build and verify each module in isolation before wiring it into the next. Do not let the frontend work (Modules 10–14) start until Module 7 (the orchestrated research pipeline) is fully working — there's nothing real to build a UI against otherwise.
-- Module 6 (Citation Verifier) is the hardest and most important piece, both for the product's core claim and for the paper, and for Module 9.5. Don't shortcut it to hit a deadline elsewhere.
-- The Reranker (Module 3.5) and the fast/reasoning model split (Module 5 note) are both worth having but neither blocks the core benchmark — treat them as "add if time permits," in that priority order.
-- The action gate (Module 8/9/12) is a product trust decision, not just a UI nicety — no drafted document should ever be exportable without an explicit user approval step.
-- Keep the credits/pricing system in test mode throughout — it exists to make the demo/pitch look like a real product, not to process real payments.
-- Everything the frontend needs to "look alive" (trace panel, verification badges, stats) should be built from data the backend is already producing for the paper — don't build separate mock/demo-only data paths.
-- Apply Section 7's code standards from Module 0 onward — retrofitting clean structure after the fact costs more than building it in from the start.
+- Module 6 (Citation Verifier) is still the hardest and most important piece — and now also needs to account for synthetic citations until the real-citation backfill happens (see Module 1/6 notes above).
+- Before Module 16's benchmark numbers go into the paper as final results, revisit the 502-case/2-circuit corpus size — it's enough to unblock development but may not be representative enough for a defensible comparison against Dahl et al.'s full-scale test set.
+- The `overruled_by` FK / case-substitution behavior from the original plan isn't in the schema yet — decide explicitly (Module 1 owner + Module 4 owner) whether to add it or scope Module 4 down to "drop, don't substitute" for now, rather than letting it default silently.
+- Keep the credits/pricing system in test mode throughout.
+- Apply Section 7's code standards from Module 0 onward.
