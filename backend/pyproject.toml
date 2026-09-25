@@ -21,5 +21,10 @@ dev = [
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
+[tool.pytest.ini_options]
+markers = [
+    "integration: requires live Supabase credentials and local ML models, run manually only"
+]
+
 [tool.hatch.build.targets.wheel]
 packages = ["app"]

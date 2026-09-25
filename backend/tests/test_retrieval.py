@@ -1,4 +1,5 @@
 import os
+import pytest
 from dotenv import load_dotenv
 from sentence_transformers import SentenceTransformer
 from supabase import create_client, Client
@@ -18,6 +19,7 @@ embedder = SentenceTransformer("BAAI/bge-base-en-v1.5")
 # BGE official retrieval instruction prefix
 BGE_QUERY_PREFIX = "Represent this sentence for searching relevant passages: "
 
+@pytest.mark.integration
 def test_vector_search():
     raw_query = "Fourth amendment unreasonable search and seizure of vehicle without warrant"
     # Prefix only applied to the query side

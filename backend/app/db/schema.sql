@@ -10,6 +10,7 @@ CREATE TABLE IF NOT EXISTS cases (
     jurisdiction TEXT,
     decision_date DATE,
     is_overruled BOOLEAN DEFAULT false,
+    overruled_by UUID REFERENCES cases(id),
     raw_text TEXT NOT NULL,
     source TEXT DEFAULT 'CAP',
     created_at TIMESTAMPTZ DEFAULT now()
