@@ -13,16 +13,24 @@ SUPABASE_URL = os.environ["SUPABASE_URL"]
 SUPABASE_SERVICE_ROLE_KEY = os.environ["SUPABASE_SERVICE_ROLE_KEY"]
 
 # Configuration
+# TARGET_COURTS defines the corpus's circuit coverage -- kept as a code constant
+# rather than an env var since changing it changes what the corpus (and the
+# research paper's benchmark claims) actually cover.
 TARGET_COURTS = ["Fifth Circuit", "Ninth Circuit"]
-TARGET_COUNT = 1800  # Change to 1800 after the test run is successful
-CHUNK_SIZE_CHARS = 2000
-CHUNK_OVERLAP_CHARS = 200
-MIN_TEXT_LENGTH = 2000
+# Aspirational per-run collection target for a fresh ingestion pass. The current
+# live corpus (502 cases) came from manually stopping an earlier run early due to
+# local CPU embedding time constraints, not from this constant -- see
+# docs/DECISIONS.md ("Reduce corpus size to 502 cases").
+TARGET_COUNT = int(os.environ.get("INGEST_TARGET_COUNT", 1800))
+EMBEDDING_MODEL_NAME = os.environ.get("EMBEDDING_MODEL_NAME", "BAAI/bge-base-en-v1.5")
+CHUNK_SIZE_CHARS = int(os.environ.get("CHUNK_SIZE_CHARS", 2000))
+CHUNK_OVERLAP_CHARS = int(os.environ.get("CHUNK_OVERLAP_CHARS", 200))
+MIN_TEXT_LENGTH = int(os.environ.get("MIN_TEXT_LENGTH", 2000))
 
 # Initialize Clients
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
-print("Loading 768-dimension embedding model (BAAI/bge-base-en-v1.5)...")
-embedder = SentenceTransformer("BAAI/bge-base-en-v1.5")
+print(f"Loading 768-dimension embedding model ({EMBEDDING_MODEL_NAME})...")
+embedder = SentenceTransformer(EMBEDDING_MODEL_NAME)
 text_splitter = RecursiveCharacterTextSplitter(
     chunk_size=CHUNK_SIZE_CHARS,
     chunk_overlap=CHUNK_OVERLAP_CHARS,

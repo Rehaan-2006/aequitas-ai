@@ -125,6 +125,6 @@ Real implementation work on Module 1 (Data Infrastructure) surfaced several plac
 
 - Planning, architecture, literature review, database schema, tech stack, and the full module-by-module build plan (including the 5 role-specific handoff files) are **finalized**.
 - The GitHub repository exists and Module 0 (scaffolding) is done.
-- Module 1 (Data Infrastructure) is in progress: corpus source, embedding pipeline, vector DB, and search RPC are working end to end, with 502 cases (Fifth and Ninth Circuits) ingested and embedded — see Section 7 for the real implementation details, which deviate from the original plan in several places. Citation-graph population (`case_citations`) and expanding corpus size/circuit coverage remain open.
+- Module 1 (Data Infrastructure) is **complete**: corpus source, embedding pipeline, vector DB, search RPC, and citation-graph population are all working end to end, with 502 cases (Fifth and Ninth Circuits) ingested and embedded — see Section 7 for the real implementation details, which deviate from the original plan in several places. Expanding corpus size/circuit coverage remains an open item to revisit before final benchmarking (see `docs/DECISIONS.md`), not a blocker for Module 1 itself.
 - Both Review-1 and Review-2 presentations are complete.
-- Next step: continue Module 1 (citation graph, possibly more corpus), then move into Modules 1.5/2 onward per the (now updated) build plan.
+- Next step: Module 1.5 (Input & Sanitization Layer) per the build plan.

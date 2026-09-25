@@ -20,6 +20,11 @@ class Settings(BaseSettings):
     # LLM provider
     llm_provider_api_key: str = ""
 
+    # Embeddings / retrieval
+    embedding_model_name: str = "BAAI/bge-base-en-v1.5"
+    retrieval_match_threshold: float = 0.3
+    retrieval_match_count: int = 3
+
     # Stripe (test mode only, added in a later module)
     stripe_secret_key: str = ""
     stripe_publishable_key: str = ""
