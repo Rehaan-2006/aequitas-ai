@@ -128,3 +128,6 @@ Real implementation work on Module 1 (Data Infrastructure) surfaced several plac
 - Module 1 (Data Infrastructure) is **complete**: corpus source, embedding pipeline, vector DB, search RPC, and citation-graph population are all working end to end, with 502 cases (Fifth and Ninth Circuits) ingested and embedded — see Section 7 for the real implementation details, which deviate from the original plan in several places. Expanding corpus size/circuit coverage remains an open item to revisit before final benchmarking (see `docs/DECISIONS.md`), not a blocker for Module 1 itself.
 - Both Review-1 and Review-2 presentations are complete.
 - Next step: Module 1.5 (Input & Sanitization Layer) per the build plan.
+
+# TODO(later before its needed in some other module, dont touch it until necessary)
+is_overruled fix: decide real-metadata source vs. synthetic before any re-ingestion.

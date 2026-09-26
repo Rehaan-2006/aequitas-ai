@@ -1,3 +1,8 @@
+# TODO(is_overruled): hardcoded False — see docs/DECISIONS.md [2026-09-26].
+# Any re-ingestion will wipe the manual Supabase patch and regenerate an
+# all-False table. Decide: CourtListener citator metadata vs. hash-based
+# synthetic assignment, before re-running this script.
+# "is_overruled": False,
 import os
 import re
 from datasets import load_dataset
