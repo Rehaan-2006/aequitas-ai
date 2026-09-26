@@ -139,6 +139,23 @@ class TestInputSanitizer:
         result = sanitize_query(query)
         assert result.status == SanitizationStatus.PASSED
 
+    def test_legal_query_with_off_topic_word_not_rejected(self):
+        # Regression: a flat off-topic keyword match on "movie" used to
+        # reject this as OFF_TOPIC even though it's a legitimate legal
+        # question. Embedding similarity judges topical closeness, not
+        # substring presence.
+        query = "What is the case law on movie piracy and copyright damages?"
+        result = sanitize_query(query)
+        assert result.status == SanitizationStatus.PASSED
+
+    def test_legal_query_with_nine_digit_ein_not_flagged_as_pii(self):
+        # Regression: the old bare `\b\d{9}\b` "ssn_alt" pattern flagged
+        # any 9-digit number as PII, including non-SSN business/case
+        # identifiers like an EIN.
+        query = "What is the liability exposure for EIN 123456789?"
+        result = sanitize_query(query)
+        assert result.status == SanitizationStatus.PASSED
+
     # =====================
     # Edge Cases
     # =====================
