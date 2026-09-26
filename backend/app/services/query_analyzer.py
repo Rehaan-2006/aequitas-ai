@@ -1,4 +1,4 @@
-# TODO(scope): no conversation memory / multi-turn context here, by design.
+# NOTE(scope): no conversation memory / multi-turn context here, by design.
 # This agent is stateless and classifies one query in isolation; threading
 # context across turns is a Module 7 (run_pipeline) orchestration concern.
 # Also out of scope: pipeline routing -- this agent only classifies and

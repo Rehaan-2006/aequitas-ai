@@ -26,6 +26,7 @@ class Settings(BaseSettings):
     # Sonnet-class model; cheaper/simpler agents can add their own setting
     # here rather than hardcoding a model name inline.
     query_analyzer_model: str = "anthropic/claude-sonnet-5"
+    structured_reasoning_model: str = "anthropic/claude-sonnet-5"
 
     # Embeddings / retrieval
     embedding_model_name: str = "BAAI/bge-base-en-v1.5"
