@@ -1,29 +1,19 @@
 import pytest
 
-BGE_QUERY_PREFIX = "Represent this sentence for searching relevant passages: "
-
 
 @pytest.mark.integration
 def test_vector_search():
-    from sentence_transformers import SentenceTransformer
-    from supabase import create_client
-
     from app.core.config import settings
+    from app.db.supabase_client import get_supabase_client
+    from app.services.embedding_service import embed_query
 
     assert settings.supabase_url and settings.supabase_service_role_key, "Missing SUPABASE environment variables"
-    supabase = create_client(settings.supabase_url, settings.supabase_service_role_key)
-
-    print(f"\nLoading {settings.embedding_model_name} model...")
-    embedder = SentenceTransformer(settings.embedding_model_name)
+    supabase = get_supabase_client()
 
     raw_query = "Fourth amendment unreasonable search and seizure of vehicle without warrant"
-    # Prefix only applied to the query side
-    instructed_query = f"{BGE_QUERY_PREFIX}{raw_query}"
-
     print(f"Executing query: '{raw_query}'")
-    print(f"Encoded with instruction: '{instructed_query}'")
 
-    query_vector = embedder.encode(instructed_query, normalize_embeddings=True).tolist()
+    query_vector = embed_query(raw_query).tolist()
 
     response = supabase.rpc(
         "match_case_chunks",

@@ -32,6 +32,14 @@ class Settings(BaseSettings):
     retrieval_match_threshold: float = 0.3
     retrieval_match_count: int = 3
 
+    # Hybrid Retrieval Agent (Module 3) -- intentionally wider than the
+    # single-query values above, since this stage over-retrieves for a
+    # later (separate, not-yet-built) reranker to narrow down.
+    hybrid_retrieval_top_k: int = 20
+    hybrid_retrieval_candidate_pool: int = 50
+    retrieval_rrf_k: int = 60
+    retrieval_citation_boost: float = 0.05
+
     # Stripe (test mode only, added in a later module)
     stripe_secret_key: str = ""
     stripe_publishable_key: str = ""
