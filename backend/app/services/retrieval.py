@@ -35,6 +35,7 @@ class CaseChunk(BaseModel):
     dense_similarity: float | None = None
     sparse_rank: float | None = None
     score: float = 0.0
+    rerank_score: float | None = None
 
 
 def _row_to_chunk(row: dict) -> CaseChunk:

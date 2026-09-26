@@ -40,6 +40,10 @@ class Settings(BaseSettings):
     retrieval_rrf_k: int = 60
     retrieval_citation_boost: float = 0.05
 
+    # Reranker (Module 3.5) -- cross-encoder narrowing retrieval to final top-k
+    reranker_model_name: str = "BAAI/bge-reranker-base"
+    reranker_top_n: int = 5
+
     # Stripe (test mode only, added in a later module)
     stripe_secret_key: str = ""
     stripe_publishable_key: str = ""
