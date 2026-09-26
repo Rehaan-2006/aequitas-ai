@@ -6,6 +6,8 @@ from here rather than calling os.environ directly. This keeps config
 in one place per Section 7 (Configuration over hardcoding).
 """
 
+import os
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -19,6 +21,11 @@ class Settings(BaseSettings):
 
     # LLM provider
     llm_provider_api_key: str = ""
+
+    # Agent models (Openrouter model slugs) — reasoning-heavy agents get a
+    # Sonnet-class model; cheaper/simpler agents can add their own setting
+    # here rather than hardcoding a model name inline.
+    query_analyzer_model: str = "anthropic/claude-sonnet-5"
 
     # Embeddings / retrieval
     embedding_model_name: str = "BAAI/bge-base-en-v1.5"
@@ -34,3 +41,10 @@ class Settings(BaseSettings):
 
 
 settings = Settings()
+
+# PydanticAI's Openrouter provider reads `OPENROUTER_API_KEY` from the
+# environment by default. Bridge it from the single settings source so
+# agents can use plain "openrouter:<model>" model strings without every
+# module having to build its own Provider/api_key wiring.
+if settings.llm_provider_api_key:
+    os.environ.setdefault("OPENROUTER_API_KEY", settings.llm_provider_api_key)

@@ -11,6 +11,7 @@ dependencies = [
     "python-dotenv>=1.0",
     "sentence-transformers>=6.1.0",
     "supabase>=2.31.0",
+    "pydantic-ai-slim[openai]>=2.51.0",
 ]
 
 [dependency-groups]
@@ -25,7 +26,7 @@ build-backend = "hatchling.build"
 
 [tool.pytest.ini_options]
 markers = [
-    "integration: requires live Supabase credentials and local ML models, run manually only"
+    "integration: requires live Supabase/Openrouter credentials and local ML models, run manually only"
 ]
 
 [tool.hatch.build.targets.wheel]
