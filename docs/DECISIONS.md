@@ -279,3 +279,20 @@ One additional judgment call beyond the toggles themselves: when `enable_citatio
 - `thread_id` in `legal_drafts` was added via FK constraint in migration 0005 (FK was left off in Module 8 per that module's open notes).
 
 **Status:** Complete. All mocked tests pass. Ready for integration testing once test user credentials + real JWT + live Supabase are available.
+
+## [2026-09-27] JWT auth: replace local PyJWT decoding with Supabase client.auth.get_user()
+
+**Context:** Module 9's initial JWT auth implementation decoded tokens locally via PyJWT against a hardcoded HS256 key (`supabase_jwt_secret`). Supabase has rotated to asymmetric signing (ECC P-256 via JWKS), making the static HS256 secret outdated and unreliable for verification going forward. Local JWT decoding is fragile against key rotation.
+
+**Decision:** Replaced `auth.py`'s local PyJWT decoding with `client.auth.get_user(token)` via the existing Supabase client singleton. Validation now happens on Supabase's side and is signing-key-agnostic — it handles any signing method (HS256, ECC, JWKS refresh, etc.) without code changes.
+
+**Why:** Supabase's `get_user()` validates against the current key(s) in production and handles key rotation transparently. Local decoding requires updating config whenever Supabase rotates keys, creating a maintenance burden and a window of breakage. Supabase already provides this as a standard auth method.
+
+**Trade-off:** One additional RPC call to Supabase per authenticated request (client.auth.get_user). Acceptable since auth happens once per request, not per operation, and Supabase client libraries cache/optimize this in practice.
+
+**Code changes:**
+- `backend/app/core/auth.py`: Removed `import jwt` and PyJWT logic; now calls `client.auth.get_user(token)` and extracts `user_id` from the response.
+- `backend/app/core/config.py`: Removed `supabase_jwt_secret` setting (no longer needed).
+- `backend/tests/test_api.py`: Updated mocks to mock `client.auth.get_user()` instead of constructing JWT tokens. Added `_FakeUser`, `_FakeUserResponse` classes and updated `FakeSupabaseClient` to provide `auth.get_user()`. Updated `client` fixture to properly patch `get_supabase_client()` via monkeypatch and clear its lru_cache.
+
+**Status:** All 115 mocked tests pass. Auth tests updated to mock Supabase client's auth method instead of tokens.

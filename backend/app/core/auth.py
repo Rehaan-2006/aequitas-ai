@@ -1,49 +1,52 @@
 """
 JWT authentication dependency for FastAPI.
 
-Decodes the Authorization: Bearer <jwt> header using PyJWT against
-the Supabase JWT secret (HS256), extracts user_id from the `sub` claim,
-and raises 401 on missing/invalid/expired tokens.
+Validates the Authorization: Bearer <jwt> header via Supabase's
+client.auth.get_user(token), which handles all signing key types
+(HS256, ECC/JWKS, etc.) transparently and is signing-key-agnostic.
 """
 
-import jwt
 from fastapi import HTTPException, status, Depends
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 
-from app.core.config import settings
+from app.db.supabase_client import get_supabase_client
 
 security = HTTPBearer()
 
 
 async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)) -> str:
     """
-    Extract user_id from a valid JWT token.
+    Extract and validate user_id from a JWT token via Supabase.
+
+    Delegates token validation to Supabase's client.auth.get_user(),
+    which validates against the current signing key(s) and handles
+    key rotation transparently.
 
     Raises:
         HTTPException: 401 if token is missing, invalid, or expired
     """
     token = credentials.credentials
     try:
-        payload = jwt.decode(
-            token,
-            settings.supabase_jwt_secret,
-            algorithms=["HS256"],
-            options={"verify_exp": True},
-        )
-        user_id: str = payload.get("sub")
+        client = get_supabase_client()
+        user_response = client.auth.get_user(token)
+
+        if not user_response or not user_response.user:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid token",
+            )
+
+        user_id = user_response.user.id
         if not user_id:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid token: missing user ID (sub claim)",
+                detail="Invalid token: missing user ID",
             )
         return user_id
-    except jwt.ExpiredSignatureError:
+    except HTTPException:
+        raise
+    except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Token has expired",
-        )
-    except jwt.InvalidTokenError as e:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=f"Invalid token: {str(e)}",
+            detail=f"Token validation failed: {str(e)}",
         )

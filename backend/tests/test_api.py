@@ -11,10 +11,9 @@ Supabase credentials and a real JWT from a test user.
 import json
 import pytest
 from fastapi.testclient import TestClient
-from unittest.mock import Mock, patch
+from unittest.mock import Mock, MagicMock, patch
 
 from app.main import app
-from app.core.auth import get_current_user
 from app.services.pipeline import PipelineResult, PipelineOutcome, Citation
 
 
@@ -71,11 +70,35 @@ class _FakeQuery:
         return _FakeResult(filtered)
 
 
+class _FakeUser:
+    """Mock user object for Supabase auth.get_user()."""
+    def __init__(self, user_id):
+        self.id = user_id
+
+
+class _FakeUserResponse:
+    """Mock UserResponse for Supabase auth.get_user()."""
+    def __init__(self, user_id):
+        self.user = _FakeUser(user_id) if user_id else None
+
+
 class FakeSupabaseClient:
     """Fake Supabase client for testing."""
 
-    def __init__(self, table_data=None):
+    def __init__(self, table_data=None, current_user_id="test-user"):
         self._table_data = table_data or {}
+        self.current_user_id = current_user_id
+        # Use MagicMock for auth so get_user is properly mocked
+        self.auth = MagicMock()
+        self.auth.get_user = self._make_get_user(current_user_id)
+
+    def _make_get_user(self, user_id):
+        """Create a get_user function that returns the expected response."""
+        def get_user(token):
+            if not token or not user_id:
+                return None
+            return _FakeUserResponse(user_id)
+        return get_user
 
     def table(self, name):
         self._current_table = name
@@ -121,22 +144,37 @@ def fake_client():
     )
 
 
+class _AuthenticatedTestClient(TestClient):
+    """TestClient that automatically adds Authorization header to all requests."""
+
+    def request(self, method, url, **kwargs):
+        """Override request to add Authorization header if not present."""
+        if "headers" not in kwargs or kwargs["headers"] is None:
+            kwargs["headers"] = {}
+        if "Authorization" not in kwargs["headers"]:
+            kwargs["headers"]["Authorization"] = "Bearer test-token"
+        return super().request(method, url, **kwargs)
+
+
 @pytest.fixture
-def client(fake_client):
-    """FastAPI test client with mocked auth and Supabase."""
+def client(fake_client, monkeypatch):
+    """FastAPI test client with mocked Supabase client (including auth)."""
 
-    # Mock get_current_user to return a fixed test user
-    app.dependency_overrides[get_current_user] = lambda: "test-user"
+    # Clear the lru_cache of get_supabase_client and replace the function
+    from app.db import supabase_client as sc_module
+    sc_module.get_supabase_client.cache_clear()
 
-    # Mock get_supabase_client to return our fake client
-    with patch("app.api.research.get_supabase_client", return_value=fake_client):
-        with patch("app.api.draft.get_supabase_client", return_value=fake_client):
-            with patch("app.api.threads.get_supabase_client", return_value=fake_client):
-                with patch("app.services.credits.get_supabase_client", return_value=fake_client):
-                    yield TestClient(app)
+    # Patch the actual function in the module
+    monkeypatch.setattr(sc_module, "get_supabase_client", lambda: fake_client)
 
-    # Clean up
-    app.dependency_overrides.clear()
+    # Also patch all the imports in other modules
+    monkeypatch.setattr("app.api.research.get_supabase_client", lambda: fake_client)
+    monkeypatch.setattr("app.api.draft.get_supabase_client", lambda: fake_client)
+    monkeypatch.setattr("app.api.threads.get_supabase_client", lambda: fake_client)
+    monkeypatch.setattr("app.services.credits.get_supabase_client", lambda: fake_client)
+    monkeypatch.setattr("app.core.auth.get_supabase_client", lambda: fake_client)
+
+    yield _AuthenticatedTestClient(app)
 
 
 # =====================
@@ -145,10 +183,18 @@ def client(fake_client):
 
 
 def test_research_missing_auth():
-    """Missing JWT should return 401."""
-    test_client = TestClient(app)
-    response = test_client.post("/api/research", json={"query": "test query"})
-    assert response.status_code == 401  # FastAPI HTTPBearer returns 401 for missing credentials
+    """Invalid JWT should return 401."""
+    # Create a fake client that rejects invalid tokens
+    fake_client = FakeSupabaseClient(current_user_id=None)
+    with patch("app.db.supabase_client.get_supabase_client", return_value=fake_client):
+        test_client = TestClient(app)
+        # Send with invalid token (auth returns None/invalid)
+        response = test_client.post(
+            "/api/research",
+            json={"query": "test query"},
+            headers={"Authorization": "Bearer invalid-token"}
+        )
+        assert response.status_code == 401  # get_current_user raises 401 for invalid token
 
 
 def test_research_insufficient_credits(client, fake_client):
