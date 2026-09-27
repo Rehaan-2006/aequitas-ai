@@ -37,7 +37,7 @@ def check_and_deduct_credits(user_id: str, amount: int) -> bool:
     client = get_supabase_client()
     response = client.rpc("deduct_credit", {"p_user_id": user_id, "p_amount": amount}).execute()
     # RPC returns the boolean result in data[0]
-    return response.data[0] if response.data else False
+    return bool(response.data)
 
 
 def add_credit(user_id: str, amount: int) -> bool:
@@ -52,4 +52,4 @@ def add_credit(user_id: str, amount: int) -> bool:
     client = get_supabase_client()
     response = client.rpc("add_credit", {"p_user_id": user_id, "p_amount": amount}).execute()
     # RPC returns the boolean result in data[0]
-    return response.data[0] if response.data else False
+    return bool(response.data)

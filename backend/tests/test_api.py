@@ -122,10 +122,10 @@ class FakeSupabaseClient:
                 if row["user_id"] == user_id:
                     if row["balance"] >= amount:
                         row["balance"] -= amount
-                        return _FakeScalarResult([True])
+                        return _FakeScalarResult(True)
                     else:
-                        return _FakeScalarResult([False])
-            return _FakeScalarResult([False])
+                        return _FakeScalarResult(False)
+            return _FakeScalarResult(False)
         elif func_name == "add_credit":
             user_id = params.get("p_user_id")
             amount = params.get("p_amount")
@@ -133,9 +133,9 @@ class FakeSupabaseClient:
             for row in self._table_data.get("user_credits", []):
                 if row["user_id"] == user_id:
                     row["balance"] += amount
-                    return _FakeScalarResult([True])
+                    return _FakeScalarResult(True)
             # User not found
-            return _FakeScalarResult([False])
+            return _FakeScalarResult(False)
         return _FakeScalarResult([None])
 
 
