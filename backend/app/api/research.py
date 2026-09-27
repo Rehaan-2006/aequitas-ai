@@ -82,7 +82,7 @@ def research(
                 "user_id": user_id,
                 "query": request.query,
                 "result_json": result.model_dump(),
-                "trace_json": getattr(result, "_trace", None) or {},
+                "trace_json": {"trace": [entry.model_dump() for entry in result.trace]},
             }
         ).execute()
 

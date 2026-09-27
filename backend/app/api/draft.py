@@ -12,6 +12,8 @@ from app.core.config import settings
 from app.db.supabase_client import get_supabase_client
 from app.services.drafting import draft_document, DraftResult
 from app.services.credits import ensure_credits_row, check_and_deduct_credits
+from app.services.reasoning_agent import ReasoningResult
+from app.services.retrieval import CaseChunk
 
 router = APIRouter(prefix="/api", tags=["draft"])
 
@@ -60,6 +62,8 @@ def create_draft(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Research thread not found",
             )
+        result_json = thread.get("result_json", {})
+        trace_json = thread.get("trace_json", {}) or {}
     except Exception as e:
         if isinstance(e, HTTPException):
             raise
@@ -76,25 +80,34 @@ def create_draft(
             detail="Insufficient credits for drafting",
         )
 
-    # Extract verified chunks and IRAC result from stored research
-    result_json = thread["result_json"]
-    trace_json = thread.get("trace_json", {})
+    # Extract verified chunks and IRAC result from the stored trace,
+    # reconstructing typed objects -- Supabase returns JSONB as plain
+    # dicts, but draft_document() requires real ReasoningResult /
+    # CaseChunk instances (it accesses attributes, not dict keys).
+    trace_entries = trace_json.get("trace", []) if trace_json else []
 
-    # Reconstruct verified_chunks from trace (Module 8 spec)
-    # The trace contains PipelineTraceEntry records with the chunks at each stage
-    verified_chunks = []
-    if trace_json and "trace" in trace_json:
-        for entry in trace_json["trace"]:
-            if entry.get("stage") == "citation_verification" and entry.get("data"):
-                # Extract chunks from the verification stage
-                verified_chunks = entry["data"].get("valid_chunks", [])
-                break
+    reasoning_data = None
+    valid_chunks_data = []
+    for entry in trace_entries:
+        if entry.get("stage") == "reasoning" and entry.get("data"):
+            reasoning_data = entry["data"]
+        if entry.get("stage") == "validity_check" and entry.get("data"):
+            valid_chunks_data = entry["data"].get("valid_chunks", [])
 
+    if reasoning_data is None:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Stored research thread is missing reasoning trace data",
+        )
+
+    irac_result = ReasoningResult(**reasoning_data)
+    verified_chunks = [CaseChunk(**chunk) for chunk in valid_chunks_data]
+    
     # Draft the document
     try:
         draft_result = draft_document(
             query=thread.get("query", ""),
-            irac_result=result_json,
+            irac_result=irac_result,
             verified_chunks=verified_chunks,
             template_id=request.template_id,
         )

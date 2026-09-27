@@ -314,3 +314,55 @@ One additional judgment call beyond the toggles themselves: when `enable_citatio
 **Trade-off:** Converting `/research` and `/draft` to sync routes adds minimal latency per request (the threadpool context switch is negligible compared to the pipeline's actual work); this is the correct trade for correctness. No other trade-offs identified.
 
 **Status:** All 19 mocked tests in `test_api.py` pass. Both bugs confirmed fixed: credit-insufficient tests now correctly return 402; credit-sufficient tests complete successfully. Ready for re-testing against live Supabase.
+
+## [2026-09-27] Module 9: async route handlers incompatible with PydanticAI's run_sync()
+
+**Context:** Live testing of `POST /api/research` immediately failed with `RuntimeError: this event loop is already running`. The route was declared `async def`, but `run_pipeline()` and every agent module it calls internally (Query Analyzer, Structured Reasoning, Citation Verifier) use PydanticAI's `run_sync()`, which starts its own event loop -- incompatible with being invoked from inside a request already running inside FastAPI/uvicorn's own async event loop.
+
+**Decision:** Changed the `/api/research` and `/api/draft` route handlers (`backend/app/api/research.py`, `backend/app/api/draft.py`) from `async def` to plain `def`. FastAPI automatically runs synchronous route handlers in a threadpool, where `run_sync()` can safely start its own loop without conflicting with uvicorn's. Routes with no PydanticAI-dependent calls (`/approve`, `/reject`, `/threads`, `/feedback`, `/export`) were left `async def`, since they only do direct Supabase calls.
+
+**Why:** This is a real architectural mismatch, not a style choice -- every module built through Module 8 was built synchronous by design (per the build plan's "no LLM call of its own" pattern for orchestration and the standard PydanticAI usage elsewhere in the codebase), so the two routes that actually invoke the pipeline/drafting logic must be synchronous handlers, not async ones.
+
+**Trade-off:** None identified -- FastAPI's threadpool dispatch for sync routes is the standard, intended way to mix sync business logic into an async app; no behavior change for callers.
+
+## [2026-09-27] Module 9: two scalar-RPC unwrapping bugs, one regressed and refixed mid-session
+
+**Context:** `deduct_credit` and `add_credit` are both Postgres functions `RETURNS BOOLEAN` -- a single scalar value, not a table of rows. `check_and_deduct_credits()` and `add_credit()` in `backend/app/services/credits.py` were both initially written as `response.data[0] if response.data else False`, assuming Supabase's RPC response shape returns a list of row-dicts (the shape a table query returns). For a scalar-returning RPC, `response.data` is the bare value directly, so `response.data[0]` throws `TypeError: 'bool' object is not subscriptable`. Found via live testing of `/api/research`, not by the mocked suite -- the test mock (`FakeSupabaseClient.rpc()`) matched the same wrong list-wrapped assumption instead of matching real Supabase behavior.
+
+**Decision:** Both functions corrected to `return bool(response.data)`. `tests/test_api.py`'s `_FakeScalarResult` mock corrected to hold the bare scalar (not list-wrapped) and to expose an `.execute()` method returning itself, matching the real Supabase RPC client's method-chaining shape (`client.rpc(...).execute()`).
+
+Mid-session, a separate Claude Code run (fixing the unrelated async-route bug and adding the new `add_credit` RPC) reverted both functions back to the broken `response.data[0]` form and re-broke the test mock back to list-wrapped, without awareness of this entry's earlier fix (lost across a context compaction). Caught by re-running the live `/api/research` test again immediately afterward rather than trusting the "all tests pass" report, and corrected back to the `bool(response.data)` form manually.
+
+**Why:** A real Supabase scalar RPC response is never a list -- this is the second time this exact assumption caused a live failure, underscoring that the mocked suite alone cannot catch this class of bug, since the mock and the code were both written with the same wrong assumption at the same time.
+
+**Trade-off:** None -- this is a straightforward correction with no behavioral trade-off. Noted here specifically as a caution: after any session compaction, a line that was already fixed once should not be trusted to still be correct without a live re-check, since compaction can cause a later edit to silently reintroduce an earlier bug.
+
+## [2026-09-27] Module 9: `research.py` never persisted the real pipeline trace (`_trace` vs `trace` attribute mismatch)
+
+**Context:** `POST /api/research`'s thread-persistence step stored `trace_json` via `getattr(result, "_trace", None) or {}`. `PipelineResult`'s real field is `trace` (public, no underscore) -- `getattr` silently returned `None` for every request (since `_trace` never existed), and `None or {}` became an empty dict, so every `research_threads` row's `trace_json` was persisted as `{}` regardless of how much real trace data the pipeline actually produced. This silently broke `POST /api/draft`, which reconstructs `ReasoningResult`/`CaseChunk` objects from the stored trace -- found only when `/api/draft` failed against a real persisted thread.
+
+**Decision:** Corrected to `"trace_json": {"trace": [entry.model_dump() for entry in result.trace]}` -- reading the correct attribute name and explicitly serializing each `PipelineTraceEntry` (a Pydantic object, not directly JSON-serializable) before insert.
+
+**Why:** `getattr(obj, name, default)` fails silently on a wrong attribute name rather than raising -- exactly the kind of bug that a stricter direct attribute access (`result.trace`) would have caught immediately at implementation time via an `AttributeError`, instead of silently persisting broken data that only surfaced two steps later in a different endpoint.
+
+**Trade-off:** None functionally. Worth flagging as a pattern: `getattr(..., default)` should be reserved for genuinely optional attributes, not used as a substitute for verifying the correct attribute name exists.
+
+## [2026-09-27] Module 9: `draft.py` reconstruction block mis-indented into a dead code path
+
+**Context:** The reconstruction logic added to fix the `_trace`/`trace` bug above (rebuilding `ReasoningResult`/`CaseChunk` from the stored trace) was pasted into `backend/app/api/draft.py` at the wrong indentation level -- nested inside the `if not check_and_deduct_credits(...):` block, directly after its `raise HTTPException(...)`. Since a `raise` unconditionally exits the function, and the reconstruction code was only reachable from inside that `if` branch's body, it never executed under any code path (not on the failure branch, since `raise` exits first; not on the success branch, since the `if` condition was `False` and its whole indented body -- including this code -- was skipped). Manifested as `UnboundLocalError: cannot access local variable 'irac_result'` when `draft_document()` was called. Also: `trace_json` was referenced in this block but never actually assigned anywhere in the function.
+
+**Decision:** Dedented the entire reconstruction block to the function's top level, positioned between the credits check and the `draft_document()` call (so it only runs after credits are successfully deducted, as intended). Added the missing `result_json = thread.get("result_json", {})` / `trace_json = thread.get("trace_json", {}) or {}` assignments immediately after the thread-ownership check, inside the same `try` block that fetches the thread.
+
+**Why:** Python does not raise a syntax or indentation error for code that is syntactically valid but logically unreachable in the intended branch -- this required actually reading the file's real indentation rather than trusting a prior "fixed" report, which is exactly what live-testing (re-running `/api/draft` against a real thread with a real, correctly-populated trace) surfaced that a mocked test alone would not have caught, since the mocked suite's fixtures don't exercise this exact code path shape.
+
+**Trade-off:** None -- straightforward positional correction.
+
+## [2026-09-27, minor -- needs a follow-up check, not urgent] `/export` response body's `approval_status` field may be stale/duplicated
+
+**Context:** After a full live end-to-end run (`/api/research` -> `/api/draft` -> `/api/draft/{id}/approve` -> `/api/threads/{id}/export`), the `/export` response returned `200` with real `content_json` (confirming the Action Gate's actual enforcement -- `approval_status != 'approved'` at the DB-row level -- worked correctly, since a non-approved draft would have returned `403`), but the `approval_status` field visible in the response body still read `"pending_review"` rather than `"approved"`.
+
+**Decision:** No fix applied yet -- flagged for a follow-up check, not treated as a security issue tonight, since the actual gate (200 vs 403) behaved correctly.
+
+**Why:** The 200 status proves the row-level `approval_status` check passed at the time of the request. The stale value in the response body is most likely either (a) `content_json`'s own internal copy of the field (from when `DraftResult` was originally serialized at draft-creation time, before approval) being echoed back verbatim rather than the live `legal_drafts.approval_status` column being re-read, or (b) an ordering/timing artifact in this specific manual test. Needs a deliberate re-check (e.g. inspecting exactly what `/export`'s handler returns for this field, and whether `content_json` and the row-level column have drifted into two separate sources of truth) before the next time this endpoint is touched.
+
+**Trade-off:** None yet identified -- the security-relevant gate is confirmed working; this is at most a response-body accuracy issue.
