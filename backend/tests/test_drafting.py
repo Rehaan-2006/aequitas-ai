@@ -425,7 +425,7 @@ class TestDraftingIntegration:
 
     def test_live_demand_letter_end_to_end(self):
         self._check_credentials()
-        query = "What must a plaintiff show to overcome a qualified immunity defense?"
+        query = "Fourth amendment unreasonable search and seizure of vehicle without warrant"
         reasoning_result, valid_chunks = self._real_research(query)
         if reasoning_result.insufficient_sources or not reasoning_result.citations:
             pytest.skip("No usable research result for this corpus/query to draft from.")
@@ -440,7 +440,7 @@ class TestDraftingIntegration:
 
     def test_live_legal_memorandum_end_to_end(self):
         self._check_credentials()
-        query = "What are the elements of a Section 1983 claim against a state actor?"
+        query = "Fourth amendment unreasonable search and seizure of vehicle without warrant"
         reasoning_result, valid_chunks = self._real_research(query)
         if reasoning_result.insufficient_sources or not reasoning_result.citations:
             pytest.skip("No usable research result for this corpus/query to draft from.")
