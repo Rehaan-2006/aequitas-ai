@@ -30,7 +30,7 @@ class ResearchResponse(BaseModel):
 
 
 @router.post("/research", response_model=ResearchResponse)
-async def research(
+def research(
     request: ResearchRequest,
     user_id: str = Depends(get_current_user),
 ) -> ResearchResponse:

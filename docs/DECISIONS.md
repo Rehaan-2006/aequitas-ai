@@ -296,3 +296,21 @@ One additional judgment call beyond the toggles themselves: when `enable_citatio
 - `backend/tests/test_api.py`: Updated mocks to mock `client.auth.get_user()` instead of constructing JWT tokens. Added `_FakeUser`, `_FakeUserResponse` classes and updated `FakeSupabaseClient` to provide `auth.get_user()`. Updated `client` fixture to properly patch `get_supabase_client()` via monkeypatch and clear its lru_cache.
 
 **Status:** All 115 mocked tests pass. Auth tests updated to mock Supabase client's auth method instead of tokens.
+
+## [2026-09-27] Module 9 fixes: convert async routes to sync, implement atomic add_credit RPC
+
+**Context:** Live testing of the Backend API (Module 9) post-deployment surfaced two bugs: (1) async route handlers calling synchronous PydanticAI functions that internally use `run_sync()` to start their own event loop, causing "RuntimeError: this event loop is already running"; (2) `add_credit()` function passing a literal string `"balance + 1"` to Supabase's `.update()` method, which Postgrest interprets as a string literal rather than SQL, causing "invalid input syntax for type integer".
+
+**Decision:** 
+1. **Async route fix:** Converted `/api/research` and `/api/draft` route handlers from `async def` to plain `def`. FastAPI runs synchronous handlers in a threadpool where PydanticAI's `run_sync()` can safely start its own event loop. Routes calling synchronous PydanticAI functions (`run_pipeline()`, `draft_document()` and their transitive callees) must be synchronous; routes with no PydanticAI dependencies remain async (e.g., `/threads`, `/export`).
+2. **Credits system fix:** Created a new migration (`0006_add_credit_rpc.sql`) defining an atomic `add_credit(p_user_id UUID, p_amount INT) RETURNS BOOLEAN` RPC function (PL/pgSQL), symmetric with the existing `deduct_credit()` RPC. Updated `app/services/credits.py::add_credit()` to call this RPC via `client.rpc("add_credit", {...}).execute()` instead of attempting a direct UPDATE. This ensures atomicity and avoids the string-literal bug.
+3. **Test fixes:** Updated `backend/tests/test_api.py`'s `FakeSupabaseClient.rpc()` method to mock both `deduct_credit` and `add_credit` RPCs, returning `_FakeScalarResult([True])` or `_FakeScalarResult([False])` (list format matching Supabase scalar response shape, not bare boolean). Fixed `check_and_deduct_credits()` in `credits.py` to extract the boolean via `response.data[0]` instead of `bool(response.data)` (which evaluates non-empty lists as truthy regardless of content).
+
+**Why:** 
+1. Async/sync mismatch: FastAPI's event loop is already running when an async route handler is invoked; PydanticAI's `run_sync()` tries to start a new event loop in that same thread, which Python forbids. Synchronous route handlers run in a threadpool, giving `run_sync()` its own clean OS thread where it can create an event loop.
+2. Supabase RPC atomicity: The string-literal bug (and the fundamental race-condition risk of SELECT-then-UPDATE) is why the build plan specified atomic credit deduction via RPC in the first place. A symmetric add_credit RPC closes the symmetry gap and prevents the string-literal issue entirely.
+3. Test fix: Response data from a scalar-returning Supabase RPC is a list `[value]`, not a bare scalar. `response.data[0]` extracts the boolean correctly; `bool(response.data)` always evaluates to True for any non-empty list, making all credit checks pass even when they should fail.
+
+**Trade-off:** Converting `/research` and `/draft` to sync routes adds minimal latency per request (the threadpool context switch is negligible compared to the pipeline's actual work); this is the correct trade for correctness. No other trade-offs identified.
+
+**Status:** All 19 mocked tests in `test_api.py` pass. Both bugs confirmed fixed: credit-insufficient tests now correctly return 402; credit-sufficient tests complete successfully. Ready for re-testing against live Supabase.

@@ -26,6 +26,15 @@ class _FakeResult:
     def __init__(self, data):
         self.data = data
 
+class _FakeScalarResult:
+    """Mimics Supabase's RPC response shape for a scalar-returning
+    Postgres function (e.g. deduct_credit RETURNS BOOLEAN) -- .data is
+    the bare value itself, not a list of rows."""
+    def __init__(self, data):
+        self.data = data
+
+    def execute(self):
+        return self
 
 class _FakeQuery:
     def __init__(self, data, client):
@@ -105,20 +114,29 @@ class FakeSupabaseClient:
         return _FakeQuery(self._table_data.get(name, []), self)
 
     def rpc(self, func_name, params):
-        """Fake RPC call for deduct_credit."""
+        """Fake RPC call for deduct_credit and add_credit."""
         if func_name == "deduct_credit":
             user_id = params.get("p_user_id")
             amount = params.get("p_amount")
-            # Find the user in user_credits table
             for row in self._table_data.get("user_credits", []):
                 if row["user_id"] == user_id:
                     if row["balance"] >= amount:
                         row["balance"] -= amount
-                        return _FakeQuery([True], self)
+                        return _FakeScalarResult([True])
                     else:
-                        return _FakeQuery([False], self)
-            return _FakeQuery([False], self)
-        return _FakeQuery([], self)
+                        return _FakeScalarResult([False])
+            return _FakeScalarResult([False])
+        elif func_name == "add_credit":
+            user_id = params.get("p_user_id")
+            amount = params.get("p_amount")
+            # Find the user and add credits
+            for row in self._table_data.get("user_credits", []):
+                if row["user_id"] == user_id:
+                    row["balance"] += amount
+                    return _FakeScalarResult([True])
+            # User not found
+            return _FakeScalarResult([False])
+        return _FakeScalarResult([None])
 
 
 @pytest.fixture

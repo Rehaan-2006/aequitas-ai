@@ -27,7 +27,7 @@ class DraftResponse(BaseModel):
 
 
 @router.post("/draft", response_model=DraftResponse)
-async def create_draft(
+def create_draft(
     request: DraftRequest,
     user_id: str = Depends(get_current_user),
 ) -> DraftResponse:

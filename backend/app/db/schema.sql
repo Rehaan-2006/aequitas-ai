@@ -216,3 +216,22 @@ DROP CONSTRAINT IF EXISTS fk_legal_drafts_thread_id;
 ALTER TABLE legal_drafts
 ADD CONSTRAINT fk_legal_drafts_thread_id
 FOREIGN KEY (thread_id) REFERENCES research_threads(id);
+
+-- Atomic Credit Addition RPC (Module 9 addendum)
+-- Symmetric with deduct_credit; used for refunds when sanitization rejects a query.
+CREATE OR REPLACE FUNCTION add_credit(
+    p_user_id UUID,
+    p_amount INT
+)
+RETURNS BOOLEAN
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    UPDATE user_credits
+    SET balance = balance + p_amount,
+        updated_at = now()
+    WHERE user_id = p_user_id;
+
+    RETURN FOUND;
+END;
+$$;

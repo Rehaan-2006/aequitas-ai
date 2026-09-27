@@ -40,13 +40,16 @@ def check_and_deduct_credits(user_id: str, amount: int) -> bool:
     return response.data[0] if response.data else False
 
 
-def add_credit(user_id: str, amount: int) -> None:
+def add_credit(user_id: str, amount: int) -> bool:
     """
     Add credits back to a user (used for refunds when sanitization rejects a query).
 
-    Direct UPDATE, not an RPC — we only need atomicity for deductions.
+    Uses atomic add_credit RPC function (symmetric with deduct_credit).
+
+    Returns:
+        True if a row was updated, False if user doesn't exist.
     """
     client = get_supabase_client()
-    client.table("user_credits").update(
-        {"balance": f"balance + {amount}"}  # Supabase will increment
-    ).eq("user_id", user_id).execute()
+    response = client.rpc("add_credit", {"p_user_id": user_id, "p_amount": amount}).execute()
+    # RPC returns the boolean result in data[0]
+    return response.data[0] if response.data else False
