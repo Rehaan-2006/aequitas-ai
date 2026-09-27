@@ -130,3 +130,27 @@ AS $$
   ORDER BY rank DESC
   LIMIT match_count;
 $$;
+
+-- Document Templates Table (Module 8 -- Drafting Agent)
+CREATE TABLE IF NOT EXISTS document_templates (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    title VARCHAR(255) NOT NULL,
+    jurisdiction VARCHAR(100) NOT NULL,
+    category VARCHAR(100) NOT NULL,
+    structure_schema JSONB NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- Legal Drafts Table (Module 8 -- Drafting Agent)
+-- thread_id has no FK yet -- research_threads doesn't exist until Module 9.
+CREATE TABLE IF NOT EXISTS legal_drafts (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    thread_id UUID,
+    template_id UUID REFERENCES document_templates(id),
+    content_json JSONB NOT NULL,
+    verification_status VARCHAR(50) DEFAULT 'unverified',
+    approval_status VARCHAR(50) DEFAULT 'pending_review',
+    updated_at TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_legal_drafts_template_id ON legal_drafts (template_id);

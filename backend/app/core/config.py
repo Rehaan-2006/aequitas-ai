@@ -28,6 +28,7 @@ class Settings(BaseSettings):
     query_analyzer_model: str = "anthropic/claude-sonnet-5"
     structured_reasoning_model: str = "anthropic/claude-sonnet-5"
     citation_verifier_model: str = "anthropic/claude-sonnet-5"
+    section_drafter_model: str = "anthropic/claude-sonnet-5"
 
     # Embeddings / retrieval
     embedding_model_name: str = "BAAI/bge-base-en-v1.5"
