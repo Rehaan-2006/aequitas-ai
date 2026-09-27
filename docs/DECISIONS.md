@@ -250,3 +250,32 @@ One additional judgment call beyond the toggles themselves: when `enable_citatio
 **Why:** This is additional evidence for the open item above, not a new finding -- it confirms the marker-propagation limitation is systemic to Module 6's current design (reproduces across templates/sections), not specific to Motion to Dismiss's particular section set. Also confirms `draft_document()` handles a real `CONTRADICTED` outcome correctly end-to-end (structurally complete draft, correct `failed` status, correct `pending_review` approval status) -- the system fails safe, never fails silent.
 
 **Trade-off:** None new. Still tracked under the existing open item above; no code change made here. Test queries are now shared across two templates rather than topically distinct, which is a minor loss of test-scenario diversity but a reasonable trade against a corpus with no civil-law coverage to draw a better query from.
+
+## [2026-09-27] Module 9: Backend API, atomic credits RPC, and action gate enforcement
+
+**Context:** Module 9 (Backend API) wires Modules 1.5-8 into HTTP routes, implements JWT auth, and manages credits for research and drafting operations.
+
+**Decision:** Built FastAPI routes with the following structure and design:
+- JWT auth via `get_current_user` dependency (HTTPBearer + PyJWT decode against Supabase JWT secret, HS256).
+- Atomic credits via a single `deduct_credit(p_user_id UUID, p_amount INT) RETURNS BOOLEAN` RPC (PL/pgSQL), never SELECT-then-UPDATE in application code.
+- Research threads (`research_threads` table) and user credits (`user_credits` table) added via migration 0005.
+- All routes thin: auth + credit check + one unmodified call to Modules 1.5-8, all error handling explicit (no silent swallows).
+- Action Gate enforced on `/threads/{id}/export`: returns 403 if `approval_status != 'approved'`, even if frontend tries to skip it.
+- POST /research: deducts credit, calls `run_pipeline()`, refunds credit on sanitization rejection (no charge for rejected queries).
+- POST /draft: deducts credit, reconstructs verified_chunks from stored trace, calls `draft_document()`.
+- POST /draft/{id}/approve/reject: updates approval status, ownership verified.
+- GET /threads: user-scoped list only.
+- POST /threads/{id}/feedback: validates feedback is 1 or -1 (Literal type in Pydantic).
+- GET /threads/{id}/export: Action Gate enforcement + structured JSON return (no rendered files).
+
+**Why:** Centralizes all credit logic in one RPC to prevent race conditions (no accidental double-spending or missed deductions). Routing all module calls through the API rather than duplicating module invocation keeps the pipeline's invariants (each stage called once, in order) and makes future versioning/ablation changes easier. Thin route handlers match the build plan's "separation of concerns" requirement.
+
+**Trade-off:** PDF/DOCX file rendering is out of scope (deferred to Module 9.5 or a standalone pre-Module-12 task, as documented in the scope cut). `/export` returns structured JSON only. No streaming upload support yet (file size limits will come as part of Module 9.5's document-audit feature). All error responses are explicit (no generic 500 swallows), which is good for debugging but means clients must handle a wider error-code surface (401/402/403/404/422/500).
+
+**Tests:** 19 mocked tests covering all routes (auth, credit deduction, sanitization refund, ownership checks, action gate, feedback validation, export approval status). All 115 existing mocked tests still pass; integration tests deferred (need real Supabase + JWT from test user + real Openrouter calls through full pipeline).
+
+**Scope cuts explicitly documented in code:**
+- `POST /export` returns structured JSON. PDF/DOCX rendering deferred — see docs/DECISIONS.md.
+- `thread_id` in `legal_drafts` was added via FK constraint in migration 0005 (FK was left off in Module 8 per that module's open notes).
+
+**Status:** Complete. All mocked tests pass. Ready for integration testing once test user credentials + real JWT + live Supabase are available.

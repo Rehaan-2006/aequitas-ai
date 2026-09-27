@@ -18,6 +18,7 @@ class Settings(BaseSettings):
     supabase_url: str = ""
     supabase_anon_key: str = ""
     supabase_service_role_key: str = ""
+    supabase_jwt_secret: str = ""
 
     # LLM provider
     llm_provider_api_key: str = ""
@@ -46,6 +47,10 @@ class Settings(BaseSettings):
     # Reranker (Module 3.5) -- cross-encoder narrowing retrieval to final top-k
     reranker_model_name: str = "BAAI/bge-reranker-base"
     reranker_top_n: int = 5
+
+    # Credits system
+    research_credit_cost: int = 1
+    draft_credit_cost: int = 1
 
     # Stripe (test mode only, added in a later module)
     stripe_secret_key: str = ""

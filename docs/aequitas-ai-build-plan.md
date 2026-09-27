@@ -105,6 +105,7 @@ aequitas-ai/
 - Decide whether to expand corpus size/circuit coverage before Module 16 benchmarking, and whether to backfill real reporter citations via CourtListener before then too.
 - The original plan's `overruled_by` self-referencing FK (for the Validity/Citator Agent to substitute a replacement case) is **not in the actual schema** — only a boolean `is_overruled` flag exists on `cases`. Decide with whoever builds Module 4 whether "substitute the overruling case" is still in scope, or whether the agent should just drop overruled cases without substitution for now.
 - The CI fix (renaming `test_retrieval.py` → `verify_retrieval.py` so pytest stops auto-discovering it) works, but is a workaround rather than the standard fix — the more conventional approach is a `pytest.ini`/`pyproject.toml` marker (`@pytest.mark.integration`) with CI configured to skip that marker by default, which keeps the file runnable via `pytest` locally too. Not urgent, but worth doing properly before more integration tests accumulate.
+- PDF/DOCX rendering deferred from Module 9's `/export` endpoint; build as a small standalone task before Module 12 (Frontend: Drafting Page), Haiku-appropriate.
 
 **Definition of done:** met. `match_case_chunks` returns correct, highly relevant top-k chunks with case metadata (verified live), `is_overruled` correctly reflects hand-verified test cases, and the citation graph has real (if imperfect) data populated.
 
