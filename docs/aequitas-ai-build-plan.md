@@ -35,7 +35,7 @@
 - **Document text extraction (uploads):** pdfplumber or pypdf for PDF, python-docx for DOCX, plain read for TXT
 - **Frontend:** React (Vite) + Tailwind CSS
 - **Hosting:** FastAPI backend in Docker on Render or Fly.io; Supabase for DB/auth/storage; frontend on Vercel
-- **Payments/credits:** Stripe (test mode)
+- **Payments/credits:** Razorpay (test mode) — switched from the original plan's Stripe, since the team is based in India
 
 ---
 
@@ -158,15 +158,15 @@ aequitas-ai/
 - **Action gate:** drafted document returned with status `pending_review`, only exportable after explicit user approval.
 - **Definition of done:** Given a completed research thread, produces a document matching the template's required sections, all citations re-verified, status `pending_review`, no unfilled placeholders.
 
-### Module 9 — Backend API (FastAPI)
-- Auth: Supabase Google OAuth, verify JWT on protected routes.
-- Endpoints: `POST /research`, `POST /draft`, `POST /draft/{id}/approve` / `.../reject`, `GET /threads`, `POST /threads/{id}/feedback`, `GET /threads/{id}/export`, credits middleware on `/research`, `/draft`, `/verify-document`.
-- **Definition of done:** All endpoints testable via curl/Postman with a real Supabase-authenticated user, correctly enforcing credit balance, blocking export of unapproved drafts, returning real pipeline output.
+### Module 9 — Backend API (FastAPI) — COMPLETE
+Routes under `/api` prefix. Auth via Supabase's `client.auth.get_user(token)` (the project signs JWTs asymmetrically via ECC P-256; there is no shared JWT secret to verify locally). Credits enforced via atomic `deduct_credit`/`add_credit` Postgres RPCs. `/threads/{id}/export` returns structured JSON only — PDF/DOCX rendering is explicitly deferred to a small standalone task, to be built once a frontend exists to call it (originally planned for this module, cut for scope/budget). Verified live end-to-end. See `docs/aequitas-ai-project-status.md` and `docs/DECISIONS.md` for full detail.
 
 ### Module 9.5 — Document Upload & Citation Audit
 - Pipeline: user document (PDF/DOCX/TXT) → sanitization → text extraction → citation extraction → parallel verification (via Module 6) → audit report.
 - Extraction guardrails, page/size limits, scanned-PDF rejection — unchanged from v3.
 - **Definition of done:** Given a test document with real/corrupted/overruled citations, returns a correct per-citation status report for a ~15-page document in well under a minute.
+
+**Modules 10-15 (Frontend, Pricing/Credits, Deployment) — DEFERRED.** Reprioritized to build the Module 16 benchmark first, ahead of Openrouter credit expiration. A placeholder frontend may be built later; the real "look alive" frontend, Vercel CI/CD, and the Razorpay integration all wait until after benchmarking.
 
 ### Module 10 — Frontend: Auth + Shell
 Unchanged from v3 — landing page with stats, Google sign-in, app shell/navigation.

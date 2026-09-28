@@ -366,3 +366,15 @@ Mid-session, a separate Claude Code run (fixing the unrelated async-route bug an
 **Why:** The 200 status proves the row-level `approval_status` check passed at the time of the request. The stale value in the response body is most likely either (a) `content_json`'s own internal copy of the field (from when `DraftResult` was originally serialized at draft-creation time, before approval) being echoed back verbatim rather than the live `legal_drafts.approval_status` column being re-read, or (b) an ordering/timing artifact in this specific manual test. Needs a deliberate re-check (e.g. inspecting exactly what `/export`'s handler returns for this field, and whether `content_json` and the row-level column have drifted into two separate sources of truth) before the next time this endpoint is touched.
 
 **Trade-off:** None yet identified -- the security-relevant gate is confirmed working; this is at most a response-body accuracy issue.
+
+## [2026-09-28] Reprioritized: frontend/deployment deferred, Module 16 benchmarking moved up
+
+**Context:** Openrouter credits are limited (~$25 remaining) and cannot be topped up before they expire. The project's core claim — measured hallucination rate vs. Dahl et al. (2024) and Magesh et al. (2025) — depends entirely on Module 16's benchmark run, which itself costs real Openrouter credits at runtime (3 Sonnet-class calls per pipeline run: Query Analyzer, Structured Reasoning, Citation Verifier). Continuing straight to Modules 10-15 (frontend, pricing, deployment) risked running out of credits before the benchmark — the one deliverable the papers and the project's core claim actually depend on — ever ran.
+
+**Decision:** Deferred Modules 10-15 (real frontend styling, Vercel CI/CD, Razorpay integration) in favor of moving directly to corpus repopulation and Module 16 (Evaluation & Benchmarking). A placeholder frontend may be built later at low cost; the real frontend work waits.
+
+**Why:** The benchmark is the one artifact this project cannot substitute or fake — a polished frontend with no benchmark numbers behind it doesn't support the paper's core claim, while working benchmark numbers with a placeholder frontend still does.
+
+**Trade-off:** No demo-able UI in the near term if a mentor or reviewer wants to see the product visually before the real frontend exists. Accepted deliberately.
+
+**Benchmark model choice:** [TBD after pilot run — record here whether the full benchmark run uses the same Sonnet-class models already adversarially validated in Modules 2-8, or a cheaper model to fit the remaining budget, and what that trade-off means for what the reported numbers actually measure.]

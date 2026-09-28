@@ -36,7 +36,10 @@ Do not start building until you've read both. If anything in this file conflicts
   - Changing a module's scope, an agent's responsibilities, or a boundary between modules from what the plan describes
   - Anything that costs real money beyond trivial API testing
   - Anything that would change what either research paper can claim (e.g. corpus size, benchmark methodology, what counts as a "verified" citation)
+  - Stop and report back the moment mocked tests pass and ONE live integration case is confirmed. Do not attempt to get every remaining live case passing in a single unattended run — report partial or skipped results plainly instead of continuing to debug.
+  - After any session compaction (yours or a prior session's), re-verify previously-fixed code is still correct before editing it further — do not assume a fix documented in DECISIONS.md or an earlier session summary is still in place. A compaction can cause code that was already fixed to be silently reverted or re-broken.
 - Everything else — function structure, which helper libraries to use within the stack, cleanup refactors, adding tests — just do it, no need to ask.
+
 
 ## Code standards (non-negotiable)
 - Modular, scalable: new features should be addable without rewriting existing code.
