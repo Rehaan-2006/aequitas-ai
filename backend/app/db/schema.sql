@@ -2,6 +2,14 @@
 CREATE EXTENSION IF NOT EXISTS vector;
 
 -- Cases Table
+-- As of the 2026-09-28 re-ingestion, sourced from harvard-lil/cold-cases
+-- (CourtListener-backed), filtered to federal courts. citation, court,
+-- jurisdiction, and decision_date are now real structured fields from the
+-- source dataset, not header-regex-parsed or synthetically generated.
+-- is_overruled remains a synthetic ~10% deterministic flag (hash of
+-- case_name) -- no open dataset carries real Shepard's/KeyCite overruled
+-- status. overruled_by remains unpopulated (NULL for all rows). See
+-- docs/DECISIONS.md for both.
 CREATE TABLE IF NOT EXISTS cases (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     citation TEXT NOT NULL UNIQUE,
@@ -12,7 +20,7 @@ CREATE TABLE IF NOT EXISTS cases (
     is_overruled BOOLEAN DEFAULT false,
     overruled_by UUID REFERENCES cases(id),
     raw_text TEXT NOT NULL,
-    source TEXT DEFAULT 'CAP',
+    source TEXT DEFAULT 'COLD_CASES',
     created_at TIMESTAMPTZ DEFAULT now()
 );
 
@@ -31,6 +39,13 @@ CREATE INDEX IF NOT EXISTS case_chunks_embedding_hnsw_idx
 ON case_chunks USING hnsw (embedding vector_cosine_ops);
 
 -- Case Citations Graph Table
+-- Built via scripts/build_citations.py, regex-matching reporter-format
+-- citations in each case's raw_text. Prior to the 2026-09-28 re-ingestion,
+-- this matched against synthetic docket-based citations with known loose-
+-- regex and non-idempotency caveats (see docs/DECISIONS.md, Module 1).
+-- Citing-side data is now real Bluebook citations, which may make matching
+-- more reliable -- worth re-evaluating build_citations.py's matching logic
+-- against the new corpus rather than assuming the old caveats still apply.
 CREATE TABLE IF NOT EXISTS case_citations (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     citing_case_id UUID REFERENCES cases(id) ON DELETE CASCADE,
