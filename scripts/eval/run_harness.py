@@ -29,8 +29,11 @@ import json
 import os
 import sys
 import time
+from dotenv import load_dotenv
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "backend"))
+load_dotenv()
+
+sys.path.insert(0, os.getcwd())
 
 from app.services.pipeline import run_pipeline  # noqa: E402
 
