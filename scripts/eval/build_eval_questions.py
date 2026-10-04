@@ -17,6 +17,9 @@ Run: python3 build_eval_questions.py
 import json
 import os
 import random
+from dotenv import load_dotenv
+
+load_dotenv()
 
 from supabase import create_client
 

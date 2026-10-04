@@ -44,13 +44,18 @@ from datasets import load_dataset
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from sentence_transformers import SentenceTransformer
 from supabase import create_client
+from datetime import date, datetime
+from dotenv import load_dotenv
+
+load_dotenv()
+
 
 # ============================================================
 # Config
 # ============================================================
 
-MAX_CASES = int(os.environ.get("MAX_CASES", "5000"))  # tune after a throughput test batch
-BATCH_SIZE = 50  # cases per embed+insert batch
+MAX_CASES = int(os.environ.get("MAX_CASES", "1800"))  # tune after a throughput test batch
+BATCH_SIZE = 20  # cases per embed+insert batch
 EMBEDDING_MODEL = "BAAI/bge-base-en-v1.5"
 CHUNK_SIZE = 2000
 CHUNK_OVERLAP = 200
@@ -59,6 +64,10 @@ FEDERAL_JURISDICTION = "USA, Federal"
 
 OVERRULED_FRACTION_PERCENT = 10  # deterministic synthetic ~10% flag
 
+def serialize_date(value):
+    if isinstance(value, (date, datetime)):
+        return value.isoformat()
+    return value
 
 def get_credentials():
     """Reads Supabase credentials from Colab Secrets if running in Colab,
@@ -75,8 +84,7 @@ def get_credentials():
         key = os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
         if not url or not key:
             print(
-                "Missing SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY. "
-                "Set them as environment variables (local) or Colab Secrets.",
+                "Missing SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY. ",
                 file=sys.stderr,
             )
             sys.exit(1)
@@ -112,12 +120,13 @@ def parse_case(case: dict) -> dict | None:
     if not citations:
         return None
 
-    raw_text = extract_raw_text(case)
-    if not raw_text:
-        return None
-
     case_name = case.get("case_name") or case.get("case_name_full") or ""
     if not case_name:
+        return None
+
+    caption = f"{case_name}, {citations[0]} ({case.get('court_full_name', '')}, {case.get('date_filed', '')})\n\n"
+    raw_text = caption + extract_raw_text(case)
+    if not raw_text.strip():
         return None
 
     return {
@@ -125,7 +134,7 @@ def parse_case(case: dict) -> dict | None:
         "case_name": case_name,
         "court": case.get("court_full_name"),
         "jurisdiction": case.get("court_jurisdiction"),
-        "decision_date": case.get("date_filed"),  # already ISO-ish (YYYY-MM-DD) in COLD Cases
+        "decision_date": serialize_date(case.get("date_filed")), # already ISO-ish (YYYY-MM-DD) in COLD Cases
         "is_overruled": is_overruled_synthetic(case_name),
         "raw_text": raw_text,
         "source": "COLD_CASES",
@@ -192,7 +201,7 @@ def insert_batch(client, model, splitter, parsed_cases: list[dict]) -> int:
         # A batch can fail wholesale on a single bad row (e.g. a citation
         # collision within the dataset itself). Fall back to one-by-one
         # for this batch only, so one bad case doesn't lose the rest.
-        print(f"  Batch insert failed ({e}); retrying cases individually...")
+        print(f"  Batch insert failed ({e}); retrying cases individually...")       
         inserted_rows = []
         for row in case_rows:
             try:
@@ -203,6 +212,12 @@ def insert_batch(client, model, splitter, parsed_cases: list[dict]) -> int:
         resp_data = inserted_rows
     else:
         resp_data = resp.data
+    if resp_data is not None and len(resp_data) == 0 and len(case_rows) > 0:
+        raise RuntimeError(
+            f"Entire batch of {len(case_rows)} cases failed to insert "
+            f"(0 successes) — likely a systemic bug, not row-specific data "
+            f"issues. Stopping rather than silently skipping everything."
+        )        
 
     if not resp_data:
         return 0
@@ -241,9 +256,10 @@ def insert_batch(client, model, splitter, parsed_cases: list[dict]) -> int:
     ]
 
     # Insert chunks in sub-batches to keep individual requests reasonably sized.
-    CHUNK_INSERT_BATCH = 200
+    CHUNK_INSERT_BATCH = 50
     for i in range(0, len(chunk_rows), CHUNK_INSERT_BATCH):
         client.table("case_chunks").insert(chunk_rows[i : i + CHUNK_INSERT_BATCH]).execute()
+        time.sleep(0.5)
 
     return len(citation_to_id)
 
@@ -310,10 +326,7 @@ def main():
         f"\nDone. Inserted {total_inserted} new federal cases "
         f"(scanned {total_scanned} total records) in {elapsed:.1f}s."
     )
-    print(
-        "Next: run scripts/build_citations.py, then spot-check is_overruled "
-        "and a few real citations in Supabase."
-    )
+
 
 
 if __name__ == "__main__":
