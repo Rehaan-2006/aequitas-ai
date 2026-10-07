@@ -20,7 +20,9 @@ from pydantic import BaseModel
 from app.core.config import settings
 from app.db.supabase_client import get_supabase_client
 from app.services.embedding_service import embed_query
+import logging
 
+logger = logging.getLogger(__name__)
 
 class CaseChunk(BaseModel):
     id: str
@@ -108,11 +110,15 @@ def _dense_search(client, query: str, candidate_count: int) -> list[dict]:
 
 
 def _sparse_search(client, query: str, candidate_count: int) -> list[dict]:
-    response = client.rpc(
-        "keyword_search_case_chunks",
-        {"query_text": query, "match_count": candidate_count},
-    ).execute()
-    return response.data or []
+    try:
+        response = client.rpc(
+            "keyword_search_case_chunks",
+            {"query_text": query, "match_count": candidate_count},
+        ).execute()
+        return response.data or []
+    except Exception as e:
+        logger.warning(f"Sparse search failed: {e}. Falling back to dense-only.")
+        return []
 
 
 def _reciprocal_rank_fusion(
