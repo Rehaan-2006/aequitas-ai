@@ -41,7 +41,7 @@ class Settings(BaseSettings):
     hybrid_retrieval_top_k: int = 20
     hybrid_retrieval_candidate_pool: int = 50
     retrieval_rrf_k: int = 60
-    retrieval_citation_boost: float = 0.05
+    retrieval_citation_boost: float = 0.003  # was 0.05; exceeded the whole RRF score range (max ~0.033), see DECISIONS.md
 
     # Reranker (Module 3.5) -- cross-encoder narrowing retrieval to final top-k
     reranker_model_name: str = "BAAI/bge-reranker-base"

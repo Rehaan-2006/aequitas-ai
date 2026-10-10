@@ -1,0 +1,29 @@
+
+=== anthropic/claude-sonnet-5 ===
+  court      total= 25  schema_failures=  0  abstained=  4  attempted= 21  correct= 20  accuracy=95.2%
+  citation   total= 25  schema_failures=  0  abstained=  3  attempted= 22  correct= 22  accuracy=100.0%
+  quotation  total= 25  schema_failures=  0  abstained=  8  attempted= 17  correct= 16  accuracy=94.1%
+
+=== deepseek/deepseek-v4.1-flash ===
+  court      total= 25  schema_failures=  0  abstained=  3  attempted= 22  correct= 20  accuracy=90.9%
+  citation   total= 25  schema_failures=  0  abstained=  6  attempted= 19  correct= 18  accuracy=94.7%
+  quotation  total= 25  schema_failures=  1  abstained=  8  attempted= 16  correct= 11  accuracy=68.8%
+
+=== google/gemini-3.8-flash ===
+  court      total= 25  schema_failures=  0  abstained=  3  attempted= 22  correct= 20  accuracy=90.9%
+  citation   total= 25  schema_failures=  0  abstained=  3  attempted= 22  correct= 22  accuracy=100.0%
+  quotation  total= 25  schema_failures=  0  abstained=  4  attempted= 21  correct= 17  accuracy=81.0%
+
+=== minimax/minimax-m3 ===
+  court      total= 25  schema_failures=  0  abstained=  5  attempted= 20  correct= 20  accuracy=100.0%
+  citation   total= 25  schema_failures=  0  abstained=  4  attempted= 21  correct= 21  accuracy=100.0%
+  quotation  total= 25  schema_failures=  0  abstained= 15  attempted= 10  correct=  8  accuracy=80.0%
+
+=== openai/gpt-4o-mini ===
+  court      total= 25  schema_failures=  0  abstained=  8  attempted= 17  correct= 16  accuracy=94.1%
+  citation   total= 25  schema_failures=  0  abstained= 17  attempted=  8  correct=  8  accuracy=100.0%
+  quotation  total= 25  schema_failures=  0  abstained= 23  attempted=  2  correct=  2  accuracy=100.0%
+
+=== z-ai/glm-5.3-flash ===
+  court      total= 25  schema_failures=  0  abstained=  5  attempted= 20  correct= 20  accuracy=100.0%
+  citation   total= 25  schema_failures=  0  abstained=  5  attempted= 20  correct= 20  accuracy=100.0%

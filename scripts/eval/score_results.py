@@ -48,16 +48,13 @@ def score_citation(record: dict, ground_truth: str) -> bool:
 
 
 def score_quotation(record: dict, raw_text: str) -> bool:
-    """True if any sufficiently long sentence-like span of the pipeline's
-    answer appears verbatim (normalized) inside the real opinion text --
-    a genuine quote, not a paraphrase or fabrication."""
+    """True if any substantial quoted span (text the model itself placed
+    in quotation marks) appears verbatim, normalized, inside the real
+    opinion text."""
     normalized_source = normalize(raw_text)
     answer = record["answer_text"]
-    # naive sentence split; good enough for a verbatim-substring check
-    spans = re.split(r"(?<=[.!?])\s+", answer)
-    for span in spans:
-        if len(span) < 30:
-            continue
+    quoted_spans = re.findall(r'["\u201c]([^"\u201d]{20,})["\u201d]', answer)
+    for span in quoted_spans:
         if normalize(span) in normalized_source:
             return True
     return False

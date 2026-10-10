@@ -42,15 +42,11 @@ from app.services.query_analyzer import query_analyzer_agent  # noqa: E402
 from app.services.reasoning_agent import reasoning_agent  # noqa: E402  -- confirm name
 from app.services.citation_verifier import citation_verifier_agent  # noqa: E402
 
-QUESTIONS_PATH = "eval_questions.json"
-RESULTS_DIR = "results"
+QUESTIONS_PATH = "../scripts/eval/eval_questions.json"
+RESULTS_DIR = "../scripts/eval/results"
 
-MODELS = [
-    "openai/gpt-3.5-turbo",
-    "meta-llama/llama-3.3-70b-instruct",
-    "deepseek/deepseek-chat-v3",
-    "anthropic/claude-sonnet-5",  # your already-hardened pipeline default
-]
+DEFAULT_MODELS = ["anthropic/claude-sonnet-5"]
+MODELS = [m for m in os.environ.get("EVAL_MODELS", "").split(",") if m] or DEFAULT_MODELS
 
 
 def output_path_for(model: str) -> str:
