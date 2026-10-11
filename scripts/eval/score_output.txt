@@ -27,3 +27,4 @@
 === z-ai/glm-5.3-flash ===
   court      total= 25  schema_failures=  0  abstained=  5  attempted= 20  correct= 20  accuracy=100.0%
   citation   total= 25  schema_failures=  0  abstained=  5  attempted= 20  correct= 20  accuracy=100.0%
+  quotation  total= 25  schema_failures=  0  abstained= 14  attempted= 11  correct= 11  accuracy=100.0%

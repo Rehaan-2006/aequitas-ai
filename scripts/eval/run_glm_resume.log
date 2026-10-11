@@ -1,0 +1,38 @@
+Loaded 75 questions.
+[z-ai/glm-5.3-flash] Resuming — 50 questions already done, skipping those.
+[z-ai/glm-5.3-flash] Running 25 questions...
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+Loading weights:   0%|          | 0/199 [00:00<?, ?it/s]Loading weights: 100%|██████████| 199/199 [00:00<00:00, 5972.01it/s]
+Sparse search failed: {'message': 'canceling statement due to statement timeout', 'code': '57014', 'hint': None, 'details': None}. Falling back to dense-only.
+Loading weights:   0%|          | 0/201 [00:00<?, ?it/s]Loading weights: 100%|██████████| 201/201 [00:00<00:00, 3385.61it/s]
+  [1/25] quotation_0003bd47-522e-4911-be3b-b217f7123e86: PipelineOutcome.ANSWERED (0.01/sec)
+  [2/25] quotation_8a6431a2-9db3-4bd6-b6d8-c7fe29edea26: PipelineOutcome.ABSTAIN (0.01/sec)
+  [3/25] quotation_001325bd-2926-4d0f-9ebe-ad37d994ffda: PipelineOutcome.ABSTAIN (0.02/sec)
+Sparse search failed: {'message': 'canceling statement due to statement timeout', 'code': '57014', 'hint': None, 'details': None}. Falling back to dense-only.
+  [4/25] quotation_05b9845d-08ef-4705-94bf-7310111dd2ea: PipelineOutcome.ABSTAIN (0.02/sec)
+  [5/25] quotation_d6b18d89-7ab0-4edb-9a57-a71e7384a6fc: PipelineOutcome.ANSWERED (0.01/sec)
+Sparse search failed: {'message': 'canceling statement due to statement timeout', 'code': '57014', 'hint': None, 'details': None}. Falling back to dense-only.
+  [6/25] quotation_2578d32d-eea0-4fd2-a0db-711e8247dd53: PipelineOutcome.ANSWERED (0.01/sec)
+  [7/25] quotation_081cd3f0-f0d9-4724-86f0-6d219fdc9d3a: PipelineOutcome.ABSTAIN (0.01/sec)
+  [8/25] quotation_5b777d4c-0075-4033-8657-2e5f72c21b1a: PipelineOutcome.ANSWERED (0.01/sec)
+Sparse search failed: {'message': 'canceling statement due to statement timeout', 'code': '57014', 'hint': None, 'details': None}. Falling back to dense-only.
+  [9/25] quotation_ab5dd87a-8eed-4372-b89b-e08d72485f7f: PipelineOutcome.ABSTAIN (0.01/sec)
+  [10/25] quotation_cb4ef833-6279-4f42-9ce4-815b049df027: PipelineOutcome.ANSWERED (0.01/sec)
+  [11/25] quotation_ba7bf495-0fab-44cc-8b41-7095a3b92271: PipelineOutcome.ANSWERED (0.01/sec)
+  [12/25] quotation_acd15164-af72-4d2d-b13a-7088ecb28bf1: PipelineOutcome.ABSTAIN (0.01/sec)
+  [13/25] quotation_24340248-0633-4e3d-b7dc-7e9a94f30dfb: PipelineOutcome.ABSTAIN (0.01/sec)
+  [14/25] quotation_61385d27-4744-4660-9b3f-ba512cccbeb1: PipelineOutcome.ABSTAIN (0.01/sec)
+  [15/25] quotation_2fa44b0c-681f-454e-946d-8dad3af4eac9: PipelineOutcome.ANSWERED (0.01/sec)
+  [16/25] quotation_c1d061cf-7a78-4495-af77-52be0a7335c1: PipelineOutcome.ANSWERED (0.01/sec)
+  [17/25] quotation_f761d50e-31af-4be0-9d2b-416fedb5bebc: PipelineOutcome.ABSTAIN (0.01/sec)
+  [18/25] quotation_c39a6165-86ad-4c87-bcec-22128536c1cf: PipelineOutcome.ABSTAIN (0.01/sec)
+  [19/25] quotation_693ecc2c-4953-4c9f-81ba-12604023048f: PipelineOutcome.ABSTAIN (0.01/sec)
+  [20/25] quotation_2a1960e6-3bc5-4299-8e32-601622a8172b: PipelineOutcome.ABSTAIN (0.01/sec)
+  [21/25] quotation_9425e494-da57-4b3f-b7c7-9c2997cd0bf6: PipelineOutcome.ANSWERED (0.01/sec)
+  [22/25] quotation_9c8df629-e59e-496c-a249-97bc82fcbfc4: PipelineOutcome.ABSTAIN (0.01/sec)
+  [23/25] quotation_f3bd3bc2-1c0d-4ff2-b6c8-fd6b37f2deee: PipelineOutcome.ANSWERED (0.01/sec)
+Sparse search failed: {'message': 'canceling statement due to statement timeout', 'code': '57014', 'hint': None, 'details': None}. Falling back to dense-only.
+  [24/25] quotation_5b3035fc-f865-4a21-8b7e-9ccab248ceef: PipelineOutcome.ABSTAIN (0.01/sec)
+  [25/25] quotation_f2a11464-5afc-4c31-95dd-745762faedfe: PipelineOutcome.ANSWERED (0.01/sec)
+
+All models done. Run score_results.py next.
