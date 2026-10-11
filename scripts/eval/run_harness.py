@@ -35,7 +35,7 @@ load_dotenv()
 
 sys.path.insert(0, os.getcwd())
 
-from app.services.pipeline import run_pipeline  # noqa: E402
+from app.services.pipeline import PipelineDeps, run_pipeline  # noqa: E402
 
 # VERIFY these three imports match the real variable names before running:
 from app.services.query_analyzer import query_analyzer_agent  # noqa: E402
@@ -48,11 +48,19 @@ RESULTS_DIR = "../scripts/eval/results"
 DEFAULT_MODELS = ["anthropic/claude-sonnet-5"]
 MODELS = [m for m in os.environ.get("EVAL_MODELS", "").split(",") if m] or DEFAULT_MODELS
 
+ARM = os.environ.get("ARM", "full")
+ARM_SUFFIX = "" if ARM == "full" else f"_{ARM}"
+ARM_DEPS = {
+    "full": PipelineDeps(),
+    "noverifier": PipelineDeps(enable_citation_verification=False),
+    "noreranker": PipelineDeps(enable_reranker=False),
+    "novalidity": PipelineDeps(enable_validity_check=False),
+}[ARM]
 
 def output_path_for(model: str) -> str:
     safe_name = model.replace("/", "_")
     os.makedirs(RESULTS_DIR, exist_ok=True)
-    return os.path.join(RESULTS_DIR, f"run_{safe_name}.jsonl")
+    return os.path.join(RESULTS_DIR, f"run_{safe_name}{ARM_SUFFIX}.jsonl")
 
 
 def already_done(output_path: str) -> set[str]:
@@ -84,7 +92,7 @@ def run_one(question: dict, model: str) -> dict:
         with query_analyzer_agent.override(model=model_ref), \
              reasoning_agent.override(model=model_ref), \
              citation_verifier_agent.override(model=model_ref):
-            result = run_pipeline(query=question["query"])
+            result = run_pipeline(query=question["query"], deps=ARM_DEPS)
         record["schema_failure"] = False
         record["outcome"] = result.outcome
         record["citations_verified"] = result.citations_verified
