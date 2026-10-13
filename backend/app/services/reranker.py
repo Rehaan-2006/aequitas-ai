@@ -22,6 +22,14 @@ def _get_reranker_model() -> CrossEncoder:
     return CrossEncoder(settings.reranker_model_name)
 
 
+def preload() -> None:
+    """
+    Force the lazy singleton to load now. Call this once at process
+    startup (main thread) -- see embedding_service.preload() for why.
+    """
+    _get_reranker_model()
+
+
 def rerank(
     query: str,
     candidates: list[CaseChunk],

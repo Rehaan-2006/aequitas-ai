@@ -32,6 +32,54 @@ class ExportResponse(BaseModel):
     content: dict
 
 
+class ThreadDetailResponse(BaseModel):
+    id: str
+    query: str
+    created_at: str
+    feedback: int | None = None
+    result: dict
+
+
+@router.get("/threads/{thread_id}", response_model=ThreadDetailResponse)
+async def get_thread(
+    thread_id: str,
+    user_id: str = Depends(get_current_user),
+) -> ThreadDetailResponse:
+    """
+    Fetch a single research thread's full stored result (the pipeline
+    output persisted by /research), gated by ownership. Added so a
+    frontend can re-open a past thread, not just list query titles.
+    """
+    client = get_supabase_client()
+
+    try:
+        response = client.table("research_threads").select(
+            "id,user_id,query,created_at,feedback,result_json"
+        ).eq("id", thread_id).execute()
+
+        if not response.data or response.data[0]["user_id"] != user_id:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Thread not found",
+            )
+
+        thread = response.data[0]
+        return ThreadDetailResponse(
+            id=thread["id"],
+            query=thread["query"],
+            created_at=thread["created_at"],
+            feedback=thread.get("feedback"),
+            result=thread.get("result_json") or {},
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to fetch thread: {str(e)}",
+        )
+
+
 @router.get("/threads", response_model=list[ThreadsResponse])
 async def list_threads(
     user_id: str = Depends(get_current_user),

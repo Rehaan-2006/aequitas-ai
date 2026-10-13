@@ -24,6 +24,17 @@ def _get_model() -> SentenceTransformer:
     return SentenceTransformer(settings.embedding_model_name)
 
 
+def preload() -> None:
+    """
+    Force the lazy singleton to load now. Call this once at process
+    startup (main thread) rather than letting the first request trigger
+    it lazily inside a FastAPI worker thread -- loading a torch-backed
+    model for the first time off the main thread deadlocked under
+    uvicorn's threadpool (see docs/DECISIONS.md).
+    """
+    _get_model()
+
+
 def embed_texts(texts: list[str]) -> np.ndarray:
     """Return L2-normalized embeddings, one row per input text."""
     return _get_model().encode(texts, normalize_embeddings=True)

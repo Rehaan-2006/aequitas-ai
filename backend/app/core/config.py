@@ -8,6 +8,7 @@ in one place per Section 7 (Configuration over hardcoding).
 
 import os
 
+from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -57,6 +58,16 @@ class Settings(BaseSettings):
 
     # General
     environment: str = "development"
+
+    # CORS (comma-separated origins allowed to call this API from a browser)
+    cors_allowed_origins_raw: str = Field(
+        default="http://localhost:5173,http://127.0.0.1:5173",
+        alias="CORS_ALLOWED_ORIGINS",
+    )
+
+    @property
+    def cors_allowed_origins(self) -> list[str]:
+        return [origin.strip() for origin in self.cors_allowed_origins_raw.split(",") if origin.strip()]
 
 
 settings = Settings()
