@@ -19,6 +19,11 @@
   citation   total= 50  schema_failures=  0  abstained=  0  attempted= 50  correct=  5  accuracy=10.0%
   quotation  total= 50  schema_failures=  0  abstained=  0  attempted= 50  correct=  1  accuracy=2.0%
 
+=== deepseek/deepseek-v4.1-flash/noverifier ===
+  court      total= 50  schema_failures=  0  abstained=  5  attempted= 45  correct= 33  accuracy=73.3%
+  citation   total= 50  schema_failures=  0  abstained=  7  attempted= 43  correct= 36  accuracy=83.7%
+  quotation  total= 50  schema_failures=  0  abstained=  9  attempted= 41  correct= 29  accuracy=70.7%
+
 === google/gemini-3.8-flash ===
   court      total= 50  schema_failures=  0  abstained=  5  attempted= 45  correct= 40  accuracy=88.9%
   citation   total= 50  schema_failures=  0  abstained=  8  attempted= 42  correct= 42  accuracy=100.0%
@@ -28,6 +33,21 @@
   court      total= 50  schema_failures=  0  abstained=  0  attempted= 50  correct= 40  accuracy=80.0%
   citation   total= 50  schema_failures=  0  abstained=  0  attempted= 50  correct= 22  accuracy=44.0%
   quotation  total= 50  schema_failures=  0  abstained=  0  attempted= 50  correct=  2  accuracy=4.0%
+
+=== google/gemini-3.8-flash/noreranker ===
+  court      total= 50  schema_failures=  0  abstained=  4  attempted= 46  correct= 41  accuracy=89.1%
+  citation   total= 50  schema_failures=  0  abstained=  7  attempted= 43  correct= 43  accuracy=100.0%
+  quotation  total= 50  schema_failures=  5  abstained=  7  attempted= 38  correct= 36  accuracy=94.7%
+
+=== google/gemini-3.8-flash/novalidity ===
+  court      total= 50  schema_failures=  0  abstained=  2  attempted= 48  correct= 44  accuracy=91.7%
+  citation   total= 50  schema_failures=  0  abstained=  3  attempted= 47  correct= 47  accuracy=100.0%
+  quotation  total= 50  schema_failures=  0  abstained=  5  attempted= 45  correct= 42  accuracy=93.3%
+
+=== google/gemini-3.8-flash/noverifier ===
+  court      total= 50  schema_failures=  0  abstained=  5  attempted= 45  correct= 39  accuracy=86.7%
+  citation   total= 50  schema_failures=  0  abstained=  8  attempted= 42  correct= 42  accuracy=100.0%
+  quotation  total= 50  schema_failures=  0  abstained=  7  attempted= 43  correct= 41  accuracy=95.3%
 
 === minimax/minimax-m3 ===
   court      total= 50  schema_failures=  0  abstained=  9  attempted= 41  correct= 39  accuracy=95.1%

@@ -464,3 +464,21 @@ Existing corpus (502 `common-pile`-sourced cases, all associated `case_chunks` a
 **Why:** A raw-LLM baseline scored by the same scorers is the valid comparison, because the questions come from the project's own indexed corpus and published hallucination rates from other benchmarks do not transfer. Ablations show what each stage contributes.
 
 **Trade-off:** The corpus is closed-world, and answers are single runs. The baseline is not given the case, so citation and quotation questions are close to unanswerable from memory (0-10% for most models; Gemini reaches 44% on citation); those gaps mostly measure access to the corpus, not verification. The court task is the fairest comparison, since models can often answer from memory. The scorers are strict string and substring matchers: court uses fuzzy containment and still missed at least one correct paraphrase, and quotation passes if any one quoted span matches. 12 of the 150 unique target cases (8%) carry the project's synthetic random `is_overruled` flag, which the validity check drops, so those questions probably cannot be answered correctly; this caps pipeline accuracy at roughly 92% of all questions. The novalidity arm, once run, is a control for that artifact, not a finding about real overruling. The verifier's own contribution can only be claimed from the noverifier ablation, not from the pipeline-vs-baseline gap.
+
+## [2026-10-14] Ablation results: verifier matters for the weaker backbone, validity check cost matches the synthetic overruled flags
+
+**Context:** The pipeline-vs-baseline gap (2026-10-11 entry) shows the whole system helps but not which stage is responsible. The harness `ARM` switch turns off one stage at a time (noverifier, novalidity, noreranker); each arm runs all 150 questions with retrieval otherwise unchanged. Credits limited the study to two backbones: Gemini 3.8 flash (strongest answer rate; all three arms) and DeepSeek v4.1 flash (most wrong attempted answers in the full run; noverifier only). No Sonnet ablation was run.
+
+**Decision:** Ablations are single runs, scored with the same scorers as the full pipeline. Arms were run one process at a time (an earlier two-process launch crashed the laptop, probably from memory pressure; cause not investigated).
+
+**Result so far:** (correct / wrong among attempted / abstained / schema failures, out of 150)
+- Gemini full: 121 / 9 / 20 / 0.
+- Gemini noverifier: 122 / 8 / 20 / 0. No measurable effect; abstain counts are identical per task (5, 8, 7), which is consistent with the verifier never being the cause of an abstain for Gemini.
+- Gemini novalidity: 133 / 7 / 10 / 0. Twelve more correct answers and half the abstains; the gain equals the 12 target cases carrying the synthetic random `is_overruled` flag, so this arm measures that artifact, not the value of overruling detection.
+- Gemini noreranker (20 chunks to the reasoner instead of 5): 120 / 7 / 18 / 5. Accuracy is about unchanged, but all 5 schema failures fall on quotation questions (full run: 0). Cause not examined.
+- DeepSeek full: 100 / 14 / 35 / 1 (the failure was a provider token limit).
+- DeepSeek noverifier: 98 / 31 / 21 / 0. With the verifier off, DeepSeek answers 15 more questions and its wrong attempted answers go from 14 to 31 (court 3 to 12, citation 2 to 7, quotation 9 to 12), while correct answers stay about the same (100 vs 98).
+
+**Why:** The verifier's value depends on the backbone: for a model whose drafts almost always pass verification it does nothing measurable, while for a weaker, hallucination-prone model it turns wrong answers into abstains without reducing correct ones. That is the claim the pipeline-vs-baseline gap alone could not support.
+
+**Trade-off:** One run per arm; run-to-run noise is a few questions (the same question has flipped between answered and abstained across runs), so Gemini's 1-3 question differences are noise. The verifier claim rests on one weak backbone and should be repeated on another before being stated broadly. novalidity must not be presented as evidence for the validity check, since the overruled flags are synthetic. The scorers are strict string matchers and quotation passes if any one quoted span matches, so wrong counts could be understated for quotation. Reranker and validity-check effects on other backbones are untested.
