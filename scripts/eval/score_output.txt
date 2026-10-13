@@ -37,7 +37,7 @@
 === google/gemini-3.8-flash/noreranker ===
   court      total= 50  schema_failures=  0  abstained=  4  attempted= 46  correct= 41  accuracy=89.1%
   citation   total= 50  schema_failures=  0  abstained=  7  attempted= 43  correct= 43  accuracy=100.0%
-  quotation  total= 50  schema_failures=  5  abstained=  7  attempted= 38  correct= 36  accuracy=94.7%
+  quotation  total= 50  schema_failures=  0  abstained=  8  attempted= 42  correct= 40  accuracy=95.2%
 
 === google/gemini-3.8-flash/novalidity ===
   court      total= 50  schema_failures=  0  abstained=  2  attempted= 48  correct= 44  accuracy=91.7%

@@ -1,0 +1,14 @@
+Loaded 150 questions.
+[google/gemini-3.8-flash] Resuming — 145 questions already done, skipping those.
+[google/gemini-3.8-flash] Running 5 questions...
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+Loading weights:   0%|          | 0/199 [00:00<?, ?it/s]Loading weights: 100%|██████████| 199/199 [00:00<00:00, 6472.79it/s]
+Sparse search failed: {'message': 'canceling statement due to statement timeout', 'code': '57014', 'hint': None, 'details': None}. Falling back to dense-only.
+  [1/5] quotation_2578d32d-eea0-4fd2-a0db-711e8247dd53: PipelineOutcome.ANSWERED (0.02/sec)
+Sparse search failed: {'message': 'canceling statement due to statement timeout', 'code': '57014', 'hint': None, 'details': None}. Falling back to dense-only.
+  [2/5] quotation_081cd3f0-f0d9-4724-86f0-6d219fdc9d3a: PipelineOutcome.ABSTAIN (0.02/sec)
+  [3/5] quotation_5b777d4c-0075-4033-8657-2e5f72c21b1a: PipelineOutcome.ANSWERED (0.03/sec)
+  [4/5] quotation_ab5dd87a-8eed-4372-b89b-e08d72485f7f: PipelineOutcome.ANSWERED (0.03/sec)
+  [5/5] quotation_cb4ef833-6279-4f42-9ce4-815b049df027: PipelineOutcome.ANSWERED (0.03/sec)
+
+All models done. Run score_results.py next.
